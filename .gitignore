@@ -1,0 +1,11 @@
+# Downloaded Spotify preview clips (~516 MB, and third-party copyrighted audio).
+# Regenerate with: python3 download_previews.py
+previews/
+
+# Billboard Hot 100 archive (19 MB). Re-downloaded automatically by
+# add_chart_peaks.py when absent.
+hot-100-current.csv
+
+__pycache__/
+*.pyc
+.DS_Store
