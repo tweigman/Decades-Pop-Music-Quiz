@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pop Quiz",
+        "description": "Adds a Pop Quiz conversation agent. Song data must be in the popquiz folder of your Home Assistant config directory."
+      }
+    },
+    "abort": {
+      "already_configured": "Pop Quiz is already set up."
+    }
+  }
+}

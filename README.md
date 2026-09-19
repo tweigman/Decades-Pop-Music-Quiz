@@ -45,7 +45,10 @@ to be dropped in as `categories/holiday.csv` — no code change.
 categories/   one CSV per quiz category
 previews/     1,533 clips + index.csv (gitignored, ~516 MB)
 raw/          original URL lists, pre-curation
-*.py          pipeline
+*.py          data pipeline, plus play_cli.py
+custom_components/popquiz/   the Home Assistant integration
+sounds/       game sounds (bonus_intro.mp3; gitignored)
+tests/, tests_ha/            unit tests; tests inside Home Assistant
 ```
 
 ## Pipeline
@@ -115,11 +118,68 @@ are ~96 kbps, fine through a speaker and noticeably compressed on headphones.
 
 Regenerate at any time with `python3 download_previews.py`.
 
+## Playing on Home Assistant
+
+`custom_components/popquiz/` is a Home Assistant integration that adds a
+**Pop Quiz** conversation agent. Say *"Play Pop Quiz"* to a voice satellite;
+anything else is passed to Home Assistant's built-in agent, so device
+commands keep working.
+
+Game rules and every tunable number (clip length, peak cutoffs for
+easy/harder/difficult, points per round, match strictness) are in
+`custom_components/popquiz/const.py`. Players can say **repeat**, **skip**,
+or **exit game now** at any point.
+
+The bonus-round build-up sound goes at `sounds/bonus_intro.mp3` (gitignored).
+Without it, the bonus round just has no intro sound.
+
+### Install
+
+```bash
+./deploy.sh all    # first time: integration + ~500 MB of song data
+./deploy.sh        # afterwards: integration code only
+```
+
+This copies to the Synology over SSH (you'll be asked for the password).
+The song data goes to `<config>/popquiz/`; the integration code goes to
+`<config>/custom_components/popquiz/`. Then:
+
+1. Restart Home Assistant.
+2. **Settings → Devices & services → Add integration → Pop Quiz.**
+3. **Settings → Voice assistants**: in the satellite's pipeline, set the
+   conversation agent to **Pop Quiz**. Speech-to-text and text-to-speech stay
+   as they are (Whisper, Piper).
+
+### How it works
+
+An Assist reply can only be text, so clips are played separately. After the
+satellite finishes speaking a reply, the integration cuts a clip with ffmpeg
+and calls `assist_satellite.start_conversation` with it. The satellite plays
+the clip, then listens, and the answer comes back to the agent. The bonus
+build-up plays as that call's "preannounce" sound. This needs a satellite that
+supports *start conversation* (current ESPHome voice firmware does); clips
+can't play in the Assist dialog in the web UI or phone app.
+
+| File | Role |
+|---|---|
+| `game.py` | Game state machine, no Home Assistant dependency |
+| `grading.py` | Fuzzy answer matching, commands, player count, category |
+| `data.py` | Loads songs; songs with no chart peak count as difficult |
+| `clips.py` | Cuts the random-offset clip with ffmpeg |
+| `conversation.py` | The Assist agent and clip playback |
+
+### Tests
+
+```bash
+python3 -m unittest -v                     # game + grading, plain Python
+pytest tests_ha -c tests_ha/pytest.ini     # inside a real HA core; needs
+                                           # pytest-homeassistant-custom-component
+```
+
 ## Status
 
-Ready: category selection, clip playback, difficulty tiering by chart peak.
-
-Not built: the quiz itself — scoring, round progression, the play loop.
+The quiz is built and runs as a Home Assistant voice game (below), or in a
+terminal with `python3 play_cli.py`.
 
 For a "play the bridge" round, clip position would need full-length audio run
 through a structure analyzer such as

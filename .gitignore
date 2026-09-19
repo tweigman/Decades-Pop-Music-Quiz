@@ -9,3 +9,6 @@ hot-100-current.csv
 __pycache__/
 *.pyc
 .DS_Store
+
+# Bonus-round build-up sound and any other game audio you add.
+sounds/*.mp3

@@ -1,0 +1,13 @@
+{
+  "domain": "popquiz",
+  "name": "Pop Quiz",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": ["assist_satellite", "conversation", "ffmpeg", "http"],
+  "documentation": "https://github.com/home-assistant",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.1.0"
+}
