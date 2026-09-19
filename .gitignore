@@ -1,6 +1,8 @@
 # Downloaded Spotify preview clips (~516 MB, and third-party copyrighted audio).
-# Regenerate with: python3 download_previews.py
-previews/
+# Regenerate with: python3 download_previews.py. index.csv is kept: it holds
+# each clip's length, which the iPhone app needs even when streaming.
+previews/*
+!previews/index.csv
 
 # Billboard Hot 100 archive (19 MB). Re-downloaded automatically by
 # add_chart_peaks.py when absent.
