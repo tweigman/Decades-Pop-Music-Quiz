@@ -1,0 +1,5 @@
+PopQuiz.xcodeproj/
+Packages/PopQuizCore/.build/
+build/
+DerivedData/
+PopQuiz/Info.plist

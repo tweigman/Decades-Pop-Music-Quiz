@@ -1,0 +1,56 @@
+# Generate PopQuiz.xcodeproj with:  xcodegen   (brew install xcodegen)
+name: PopQuiz
+options:
+  bundleIdPrefix: com.tweigman
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+packages:
+  PopQuizCore:
+    path: Packages/PopQuizCore
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: 4GMRTUW6FD
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    # YES copies the ~500 MB of preview MP3s into the app. NO ships without
+    # them and every clip streams from its public preview URL.
+    BUNDLE_CLIPS: "YES"
+
+targets:
+  PopQuiz:
+    type: application
+    platform: iOS
+    sources:
+      - PopQuiz
+    dependencies:
+      - package: PopQuizCore
+    info:
+      path: PopQuiz/Info.plist
+      properties:
+        CFBundleDisplayName: Pop Quiz
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIUserInterfaceStyle: Dark
+        NSMicrophoneUsageDescription: Pop Quiz listens for your answers.
+        NSSpeechRecognitionUsageDescription: Pop Quiz turns your spoken answers into text, on this iPhone.
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tweigman.popquiz
+        TARGETED_DEVICE_FAMILY: "1"
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+    postBuildScripts:
+      - name: Bundle game data
+        script: '"$SRCROOT/scripts/bundle_game_data.sh"'
+        basedOnDependencyAnalysis: false

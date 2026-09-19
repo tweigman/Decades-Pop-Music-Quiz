@@ -176,6 +176,48 @@ pytest tests_ha -c tests_ha/pytest.ini     # inside a real HA core; needs
                                            # pytest-homeassistant-custom-component
 ```
 
+## Playing on iPhone
+
+`ios/` is a native SwiftUI app playing the same game hands-free: it speaks
+with AVSpeechSynthesizer, plays the clip, then listens with on-device speech
+recognition. A custom language model trained on every title and artist helps
+it hear names like "Blue Öyster Cult". Buttons (players, categories, Repeat,
+Skip, Type) work too.
+
+```bash
+cd ios && ./install.sh                  # build and install on the plugged-in iPhone
+BUNDLE_CLIPS=NO ./install.sh            # small build; clips stream instead
+cd ios/Packages/PopQuizCore && swift test   # game + grading tests, on the Mac
+```
+
+Needs Xcode (sign in under Settings → Accounts) and `brew install xcodegen`;
+the Xcode project is generated from `ios/project.yml`. The phone needs
+Developer Mode on (Settings → Privacy & Security).
+
+**Clips.** With `BUNDLE_CLIPS=YES` (the default) the MP3s are copied into the
+app and Settings offers *On this iPhone* or *Stream*. Without them the app
+streams every clip from its `Preview URL`. Either way `previews/index.csv` is
+bundled, because it holds the clip lengths.
+
+**Same rules as Home Assistant.** `PopQuizCore` is a line-for-line port of
+`game.py`, `grading.py` and `const.py`, and ships `Settings.swift` in place of
+`const.py`: **change a rule in both.** Python's `difflib` scoring is ported
+exactly, and `GradingParityTests` checks the Swift grader against ~17,000
+decisions recorded from Python. After editing `grading.py`, regenerate them:
+`python3 ios/scripts/make_grading_fixtures.py`.
+
+**The mic goes silent under screen mirroring.** With Xcode's Device Hub
+mirroring the phone's screen, the microphone delivers nothing but zeroes: the
+app hears silence while everything else works. Disconnect mirroring before
+testing by voice. `Documents/diagnostics.log` in the app container records the
+audio route, buffer count and peak level per answer, which is what pinned this
+down; copy it off with `xcrun devicectl device copy from`.
+
+**Simulator.** It has no on-device speech models, so the custom vocabulary is
+skipped there. Launch with `-demo` (debug builds) and the game plays itself,
+answering every question right, which exercises speech, clips and scoring
+without a microphone.
+
 ## Status
 
 The quiz is built and runs as a Home Assistant voice game (below), or in a
