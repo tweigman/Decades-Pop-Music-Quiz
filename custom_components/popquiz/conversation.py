@@ -101,7 +101,10 @@ class PopQuizAgent(ConversationEntity):
             self._tasks.add(task)
             task.add_done_callback(self._tasks.discard)
 
-        return _result(user_input, reply.speech, listen=reply.listen)
+        # A reply can't put speech after the bonus sound, so on a satellite the
+        # bonus announcement is spoken first and the sound plays before the clip.
+        speech = f"{reply.speech} {reply.bonus_speech}".strip()
+        return _result(user_input, speech, listen=reply.listen)
 
     def _find_satellite(self, user_input: ConversationInput) -> str | None:
         if user_input.satellite_id and user_input.satellite_id.startswith(
@@ -125,7 +128,7 @@ class PopQuizAgent(ConversationEntity):
             )
             await asyncio.sleep(POST_SPEECH_DELAY)
             bonus = self._data.data_dir / BONUS_INTRO_FILE
-            play_bonus = reply.bonus_intro and await self.hass.async_add_executor_job(
+            play_bonus = bool(reply.bonus_speech) and await self.hass.async_add_executor_job(
                 bonus.is_file
             )
             await self.hass.services.async_call(

@@ -179,7 +179,8 @@ pytest tests_ha -c tests_ha/pytest.ini     # inside a real HA core; needs
 ## Status
 
 The quiz is built and runs as a Home Assistant voice game (below), or in a
-terminal with `python3 play_cli.py`.
+terminal with `python3 play_cli.py` (add `--speak` to hear the quizmaster's
+lines read aloud by the Mac).
 
 For a "play the bridge" round, clip position would need full-length audio run
 through a structure analyzer such as

@@ -39,7 +39,9 @@ class Reply:
     speech: str
     listen: bool = False  # keep listening right after speaking
     clip: Clip | None = None  # after speaking, play this, then listen
-    bonus_intro: bool = False  # play the bonus build-up sound before the clip
+    # Bonus round only: after `speech`, play the bonus build-up sound, then
+    # say this, then play the clip.
+    bonus_speech: str = ""
     done: bool = False  # the game is over
 
 
@@ -173,29 +175,32 @@ class Game:
         level, points = ROUNDS[self.round]
         parts = [lead]
         new_round = self.turn == 0
-        bonus = new_round and round_no == BONUS_ROUND
-        if bonus:
+        if new_round and round_no == BONUS_ROUND:
             if self._announce_scores and self.players > 1:
                 parts.append(f"Scores so far: {self._score_list()}.")
-            parts.append(
-                f"It's the bonus round! Every answer is worth {points} points, "
-                f"{points * 2} if you get both."
+            self._clip = self._pick_clip(level)
+            get_ready = "Player 1, get ready." if self.players > 1 else "Get ready."
+            return Reply(
+                " ".join(parts),
+                clip=self._clip,
+                bonus_speech=(
+                    f"It's the bonus round! Every answer is worth {points} points, "
+                    f"{points * 2} if you get both. {get_ready}"
+                ),
             )
-        elif new_round and round_no > 1 and points != ROUNDS[self.round - 1][1]:
+        if new_round and round_no > 1 and points != ROUNDS[self.round - 1][1]:
             parts.append(
                 f"Round {round_no}. The points go up: {points} per answer, "
                 f"{points * 2} for both."
             )
         elif new_round:
             parts.append(f"Round {round_no}.")
-        if bonus:
-            parts.append("Player 1, get ready." if self.players > 1 else "Get ready.")
-        elif self.players > 1:
+        if self.players > 1:
             parts.append(f"Player {self.turn + 1}, here's your song.")
         else:
             parts.append("Here's your song.")
         self._clip = self._pick_clip(level)
-        return Reply(" ".join(parts), clip=self._clip, bonus_intro=bonus)
+        return Reply(" ".join(parts), clip=self._clip)
 
     def _pick_clip(self, level: str) -> Clip:
         for lvl in _FALLBACK[level]:

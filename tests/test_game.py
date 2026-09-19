@@ -121,9 +121,15 @@ class GameTest(unittest.TestCase):
                 self.assertNotIn(clip.song.title, seen_titles)
                 seen_titles.add(clip.song.title)
                 seen_levels.append(clip.song.title.split()[0].replace("Unranked", "Hard"))
-                self.assertEqual(reply.bonus_intro, rnd == 4 and player == 0)
-                if player == 0 and rnd == 4:
-                    self.assertIn("bonus round", reply.speech)
+                is_bonus = rnd == 4 and player == 0
+                self.assertEqual(bool(reply.bonus_speech), is_bonus)
+                if is_bonus:
+                    # Feedback on the last answer comes before the bonus sound,
+                    # the bonus announcement after it.
+                    self.assertIn("That was", reply.speech)
+                    self.assertNotIn("bonus round", reply.speech)
+                    self.assertIn("It's the bonus round", reply.bonus_speech)
+                    self.assertIn("Player 1, get ready", reply.bonus_speech)
                     self.assertNotIn("Scores so far", reply.speech)
                 # Player 1 names both, player 2 names the artist only.
                 said = f"{clip.song.title} by Artist" if player == 0 else "Artist"
@@ -138,7 +144,7 @@ class GameTest(unittest.TestCase):
         for _ in range(8):
             reply = game.handle("skip")
         self.assertIn("Scores so far: Player 1, 0, Player 2, 0.", reply.speech)
-        self.assertIn("bonus round", reply.speech)
+        self.assertIn("bonus round", reply.bonus_speech)
 
     def test_short_clip_fits(self):
         game, reply = self.new_game(1)

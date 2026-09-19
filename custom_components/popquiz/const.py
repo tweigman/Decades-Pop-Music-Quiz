@@ -4,7 +4,7 @@ DOMAIN = "popquiz"
 
 # Length of each song clip, in seconds. The start point is random but always
 # leaves room for the full clip to play.
-CLIP_SECONDS = 5.0
+CLIP_SECONDS = 8.0
 
 # Difficulty comes from the song's best Billboard Hot 100 peak:
 #   1 .. EASY_MAX_PEAK               -> easy
