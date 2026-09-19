@@ -14,8 +14,9 @@ _MAX_AGE_SECONDS = 3600
 
 async def render_clip(ffmpeg: str, clip: Clip, out_dir: Path) -> Path:
     """Write the clip to a new MP3 in out_dir, with short fades. Returns its path."""
-    out_dir.mkdir(parents=True, exist_ok=True)
-    _remove_old_clips(out_dir)
+    # File-system work runs in a thread: Home Assistant forbids blocking I/O
+    # in its event loop.
+    await asyncio.to_thread(_prepare_dir, out_dir)
     out = out_dir / f"{uuid.uuid4().hex}.mp3"
     fade = min(0.4, clip.duration / 4)
     proc = await asyncio.create_subprocess_exec(
@@ -36,7 +37,9 @@ async def render_clip(ffmpeg: str, clip: Clip, out_dir: Path) -> Path:
     return out
 
 
-def _remove_old_clips(out_dir: Path) -> None:
+def _prepare_dir(out_dir: Path) -> None:
+    """Create the clip folder and delete clips older than an hour."""
+    out_dir.mkdir(parents=True, exist_ok=True)
     cutoff = time.time() - _MAX_AGE_SECONDS
     for old in out_dir.glob("*.mp3"):
         if old.stat().st_mtime < cutoff:
