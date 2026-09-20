@@ -107,14 +107,19 @@ def fetch(task):
 def main(paths):
     os.makedirs(OUT_DIR, exist_ok=True)
 
-    tasks, no_preview = [], []
+    tasks, no_preview, sources = [], [], []
     for p in paths:
         # Category name is the filename stem, so a future categories/holiday.csv
         # needs no code change.
         category = os.path.splitext(os.path.basename(p))[0]
         with open(p, newline="") as f:
-            for row in csv.DictReader(f):
-                (tasks if row.get("Preview URL") else no_preview).append((category, row))
+            reader = csv.DictReader(f)
+            rows, fields = list(reader), reader.fieldnames
+        # Keep every row and its source file so the MP3 File column can be
+        # written back below.
+        sources.append((p, rows, fields))
+        for row in rows:
+            (tasks if row.get("Preview URL") else no_preview).append((category, row))
 
     print(f"{len(tasks)} clips to fetch across {len(paths)} categories "
           f"({len(no_preview)} tracks have no preview)")
@@ -128,8 +133,12 @@ def main(paths):
     for category, row, dest, status in results:
         if dest is None:
             failed.append((category, row, status))
+            row["MP3 File"] = ""
             continue
         counts[status] += 1
+        # The category CSV points at its clip by name. Nothing else writes this
+        # column, so without it a freshly built category has no playable songs.
+        row["MP3 File"] = os.path.basename(dest)
         index.append({
             "Track ID": os.path.basename(dest)[:-4],
             "Category": category,
@@ -140,15 +149,38 @@ def main(paths):
             "Preview (s)": duration_seconds(dest),
         })
 
-    index.sort(key=lambda r: (r["Category"], r["Clean Title"].lower()))
     index_path = os.path.join(OUT_DIR, "index.csv")
+    # Merge into the existing index rather than replacing it. Processing a
+    # single category must not erase the others: data.py reads clip lengths
+    # from this file, so a truncated index would make every unlisted category
+    # load zero songs and silently vanish from the game.
+    fields = ["Track ID", "Category", "Clean Title", "Artist(s)", "File",
+              "Bytes", "Preview (s)"]
+    merged = {}
+    if os.path.exists(index_path):
+        with open(index_path, newline="") as f:
+            merged = {r["Track ID"]: r for r in csv.DictReader(f)}
+    merged.update({r["Track ID"]: r for r in index})
+    # Drop entries whose clip is gone (category deleted, previews/ cleared).
+    index = [r for r in merged.values() if os.path.isfile(r["File"])]
+
+    index.sort(key=lambda r: (r["Category"], r["Clean Title"].lower()))
     with open(index_path, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=list(index[0].keys()))
+        w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()
         w.writerows(index)
 
-    total = sum(r["Bytes"] for r in index)
-    lengths = sorted(r["Preview (s)"] for r in index)
+    # Write MP3 File back into each category CSV, preserving its own columns.
+    for path, rows, fields in sources:
+        if "MP3 File" not in (fields or []):
+            fields = list(fields or []) + ["MP3 File"]
+        with open(path, "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+            w.writeheader()
+            w.writerows(rows)
+
+    total = sum(int(r["Bytes"]) for r in index)
+    lengths = sorted(float(r["Preview (s)"]) for r in index)
     print(f"\ndownloaded {counts['ok']}, already had {counts['skipped']}, failed {len(failed)}")
     print(f"{len(index)} files, {total / 1e6:.0f} MB in {OUT_DIR}/  -> {index_path}")
     if lengths:

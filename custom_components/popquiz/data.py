@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,6 +17,8 @@ from .const import (
     HARDER_MAX_PEAK,
     PREVIEWS_INDEX,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -54,10 +57,21 @@ class Library:
             (data_dir / CATEGORIES_DIR).glob("*.csv"),
             key=lambda p: (order.index(p.stem) if p.stem in order else len(order), p.stem),
         )
+        self.skipped: dict[str, str] = {}
         for csv_path in paths:
             songs = _load_category(csv_path, data_dir / "previews", lengths)
             if songs:
                 self.categories[csv_path.stem] = songs
+            else:
+                # A category part-way through the pipeline (metadata written but
+                # clips not downloaded yet) has no playable songs. Dropping it is
+                # right -- doing so silently is not, so say why.
+                self.skipped[csv_path.stem] = (
+                    "no playable songs: run download_previews.py "
+                    f"on {csv_path.as_posix()}"
+                )
+                _LOGGER.warning("Pop Quiz: skipping %s — %s",
+                                csv_path.stem, self.skipped[csv_path.stem])
 
     def songs(self, category: str, level: str) -> list[Song]:
         return [s for s in self.categories[category] if difficulty(s.peak) == level]

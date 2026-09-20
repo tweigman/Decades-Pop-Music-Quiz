@@ -13,6 +13,10 @@ comes in under two minutes and, in practice, without tripping the limiter.
 
 Re-running is cheap and safe: pass an existing CSV as the output and rows
 that already have data are kept, so only the gaps get fetched.
+
+Duplicate urls in the input are dropped before any lookups happen, matched on
+track id so a ?si= share token doesn't hide a repeat. The first occurrence
+wins and the rest are reported.
 """
 
 import csv
@@ -32,8 +36,11 @@ MIN_INTERVAL = 0.35  # seconds between request starts, across all workers
 MAX_ATTEMPTS = 5
 FIELDS = [
     "#", "URL", "Title", "Clean Title", "Artist(s)", "Year",
-    "Duration (ms)", "Preview URL",
+    "Duration (ms)", "MP3 File", "Preview URL", "Peak (Hot 100)",
 ]
+# 'MP3 File' and 'Peak (Hot 100)' are filled by download_previews.py and
+# add_chart_peaks.py. They are listed here so a refresh run preserves them --
+# DictWriter would otherwise drop any column missing from FIELDS.
 # A row counts as done when these are filled. Preview URL is deliberately not
 # required -- a small share of tracks genuinely have none, and demanding it
 # would re-fetch those rows on every run.
@@ -68,15 +75,24 @@ class Pacer:
         print(f"    rate limited — pausing {seconds}s", flush=True)
 
 
+def track_id(url):
+    """The bare Spotify id, ignoring trailing slash and ?si= share params.
+
+    Two URLs for the same track are the same track even when one carries a
+    share token, so identity is the id rather than the literal string.
+    """
+    return url.rstrip("/").split("/")[-1].split("?")[0]
+
+
 def resolve(pacer, row):
     """Fill one row in place. Returns an error string, or '' on success."""
-    track_id = row["URL"].rstrip("/").split("/")[-1].split("?")[0]
+    tid = track_id(row["URL"])
     last = "no metadata found"
 
     for attempt in range(MAX_ATTEMPTS):
         pacer.wait()
         try:
-            got = from_embed(track_id) or from_og(track_id)
+            got = from_embed(tid) or from_og(tid)
             if got and got["Title"]:
                 row.update(got)
                 row["Clean Title"] = clean(got["Title"])
@@ -119,15 +135,26 @@ def load(urls_path, csv_path):
                 if ln.strip() and not ln.startswith("#")
             ]
 
+    # Drop repeats before any network work, so a list that names the same
+    # track twice costs one lookup rather than two. First occurrence wins.
+    seen, unique, dupes = {}, [], []
+    for pos, url in enumerate(urls, 1):
+        tid = track_id(url)
+        if tid in seen:
+            dupes.append((pos, seen[tid], url))
+            continue
+        seen[tid] = pos
+        unique.append(url)
+
     rows = []
-    for i, url in enumerate(urls, 1):
+    for i, url in enumerate(unique, 1):
         prev = done.get(url)
         row = {k: "" for k in FIELDS}
         row["#"], row["URL"] = i, url
         if prev:
             row.update({k: prev.get(k, "") for k in FIELDS[2:]})
         rows.append(row)
-    return rows
+    return rows, dupes
 
 
 def report(rows):
@@ -146,7 +173,13 @@ def report(rows):
 
 
 def main(urls_path, csv_path):
-    rows = load(urls_path, csv_path)
+    rows, dupes = load(urls_path, csv_path)
+    if dupes:
+        print(f"ignored {len(dupes)} duplicate url(s) in {urls_path}:")
+        for pos, first, url in dupes:
+            print(f"  line {pos} repeats line {first}: {url}")
+        print()
+
     todo = [r for r in rows if not r["Title"]]
     print(f"{len(rows)} urls, {len(rows) - len(todo)} already resolved, fetching {len(todo)}")
 
