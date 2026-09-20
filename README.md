@@ -38,6 +38,7 @@ to be dropped in as `categories/holiday.csv` — no code change.
 | `MP3 File` | Filename in `previews/`, blank if no clip exists |
 | `Preview URL` | Source URL for the clip |
 | `Peak (Hot 100)` | Best-ever Billboard position, blank if unmatched |
+| `Difficulty` | Manual override: `easy`, `harder` or `difficult`. Blank = derive from `Peak` |
 
 ## Layout
 
@@ -92,6 +93,12 @@ length from `previews/index.csv` rather than assuming a fixed window. The
 remasters inflate it — some 1960s recordings carry a 2010s date. Fine for
 sorting, unreliable as a quiz answer.
 
+**Chart peak is a poor difficulty proxy outside the decade categories.**
+A song with no Hot 100 match counts as *difficult*, which is fine for the
+decades but wrong for `holiday`: 129 of its 201 songs never charted, so
+*O Holy Night* and *Winter Wonderland* rank as hard as anything in the set.
+Fill the `Difficulty` column to override, song by song — see below.
+
 **A blank `Peak` means "no match found", not "never charted."** 83% matched.
 The Hot 100 is US-only, so UK and European hits legitimately have none, and
 a few entries appear to be missing from the archive itself. Peaks are
@@ -108,6 +115,32 @@ resolved by *earliest* release year across all entries, on the basis that
 re-releases only ever push a year later. This is decade-specific logic — a
 future `holiday` category will legitimately overlap the decade ones and
 should not be deduplicated against them.
+
+## Difficulty
+
+Each song lands in one of three levels — `easy`, `harder`, `difficult` — and
+the game draws from them as rounds progress. The level comes from the
+`Difficulty` column when it's set, and from the Hot 100 peak otherwise:
+
+| `Peak` | Level |
+|---|---|
+| 1–5 | `easy` |
+| 6–15 | `harder` |
+| 16+, or no peak | `difficult` |
+
+Cutoffs live in `const.py` (`EASY_MAX_PEAK`, `HARDER_MAX_PEAK`).
+
+**To override**, put `easy`, `harder` or `difficult` in a row's `Difficulty`
+cell. Blank means "derive from peak", so the decade categories can be left
+alone entirely. An unrecognised value logs a warning and falls back to the
+peak rather than failing the load.
+
+This exists because the chart-peak proxy only works where most songs charted.
+`holiday` is the case it was added for: its `Difficulty` column is currently
+blank throughout, so the category still skews hard until it's filled in.
+
+Check where a category stands with `python3 new_category.py`, which reports
+song, clip, peak and easy-pool counts per category.
 
 ## Audio clips
 

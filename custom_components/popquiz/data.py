@@ -28,10 +28,18 @@ class Song:
     peak: int | None  # None when the song never matched a Hot 100 entry
     path: Path
     length: float  # seconds of audio in the preview file
+    # From the CSV's Difficulty column. Empty means "derive from peak", which
+    # is what every decade category does.
+    level_override: str = ""
 
     @property
     def artist_display(self) -> str:
         return " and ".join(self.artists)
+
+    @property
+    def level(self) -> str:
+        """easy / harder / difficult — the override if set, else from peak."""
+        return self.level_override or difficulty(self.peak)
 
 
 def difficulty(peak: int | None) -> str:
@@ -74,7 +82,7 @@ class Library:
                                 csv_path.stem, self.skipped[csv_path.stem])
 
     def songs(self, category: str, level: str) -> list[Song]:
-        return [s for s in self.categories[category] if difficulty(s.peak) == level]
+        return [s for s in self.categories[category] if s.level == level]
 
 
 def _load_lengths(index_path: Path) -> dict[str, float]:
@@ -97,6 +105,14 @@ def _load_category(
             path = previews_dir / mp3
             if not mp3 or mp3 not in lengths or not path.is_file():
                 continue
+            override = row.get("Difficulty", "").strip().lower()
+            if override and override not in (EASY, HARDER, DIFFICULT):
+                _LOGGER.warning(
+                    "Pop Quiz: %s row %s has Difficulty %r; expected one of "
+                    "%s/%s/%s or blank — falling back to chart peak",
+                    csv_path.name, row.get("#", "?"), override, EASY, HARDER, DIFFICULT,
+                )
+                override = ""
             songs.append(
                 Song(
                     title=row["Clean Title"].strip() or row["Title"].strip(),
@@ -106,6 +122,7 @@ def _load_category(
                     peak=int(float(peak)) if peak else None,
                     path=path,
                     length=lengths[mp3],
+                    level_override=override,
                 )
             )
     return songs

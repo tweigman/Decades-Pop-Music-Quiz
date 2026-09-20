@@ -12,8 +12,23 @@ from custom_components.popquiz.game import Game
 REPO = Path(__file__).resolve().parent.parent
 
 
-def song(title, *artists, peak=1, length=30.0):
-    return Song(title, artists, peak, Path(f"/x/{title}.mp3"), length)
+def song(title, *artists, peak=1, length=30.0, level=""):
+    return Song(title, artists, peak, Path(f"/x/{title}.mp3"), length, level)
+
+
+class DifficultyTest(unittest.TestCase):
+    def test_derived_from_peak_by_default(self):
+        self.assertEqual(song("a", peak=1).level, "easy")
+        self.assertEqual(song("b", peak=12).level, "harder")
+        self.assertEqual(song("c", peak=50).level, "difficult")
+
+    def test_unknown_peak_is_difficult(self):
+        self.assertEqual(song("d", peak=None).level, "difficult")
+
+    def test_override_wins_over_peak(self):
+        """Needed for categories where chart position is a poor proxy."""
+        self.assertEqual(song("e", peak=None, level="easy").level, "easy")
+        self.assertEqual(song("f", peak=1, level="difficult").level, "difficult")
 
 
 class GradingTest(unittest.TestCase):

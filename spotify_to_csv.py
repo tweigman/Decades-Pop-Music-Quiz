@@ -37,6 +37,7 @@ MAX_ATTEMPTS = 5
 FIELDS = [
     "#", "URL", "Title", "Clean Title", "Artist(s)", "Year",
     "Duration (ms)", "MP3 File", "Preview URL", "Peak (Hot 100)",
+    "Difficulty",
 ]
 # 'MP3 File' and 'Peak (Hot 100)' are filled by download_previews.py and
 # add_chart_peaks.py. They are listed here so a refresh run preserves them --

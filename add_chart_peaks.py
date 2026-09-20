@@ -29,7 +29,8 @@ HOT100_URL = "https://raw.githubusercontent.com/utdata/rwd-billboard-data/main/d
 CACHE = "hot-100-current.csv"
 CATEGORY_GLOB = os.path.join("categories", "*.csv")
 FIELDS = ["#", "URL", "Title", "Clean Title", "Artist(s)", "Year",
-          "Duration (ms)", "MP3 File", "Preview URL", "Peak (Hot 100)"]
+          "Duration (ms)", "MP3 File", "Preview URL", "Peak (Hot 100)",
+          "Difficulty"]
 
 # Credit joiners and noise that the two sources disagree about.
 SPLIT = re.compile(r"\s*(?:;|&|\+|/|,|\bfeat\.?\b|\bfeaturing\b|\bwith\b|\bx\b|\band\b|\bduet\b|\bvs\.?\b)\s*", re.I)
