@@ -49,6 +49,16 @@ struct SettingsView: View {
                 } footer: {
                     Text("Multiplayer games only. Applies from the next game.")
                 }
+
+                Section {
+                    Toggle("Enable extended playlists", isOn: $quiz.extendedPlaylists)
+                } header: {
+                    Text("Seasonal")
+                } footer: {
+                    Text(quiz.holidayAvailable && !quiz.extendedPlaylists
+                        ? "Holiday is in season, so it's on the category list until January 6th. Turn this on to keep it there year-round."
+                        : "Holiday songs appear on the category list from November 20th to January 6th. Turn this on to play them at any time of year.")
+                }
             }
             .navigationTitle("Settings")
             .toolbar { Button("Done") { dismiss() } }

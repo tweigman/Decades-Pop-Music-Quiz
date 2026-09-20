@@ -8,6 +8,9 @@ WELCOME = (
 
 ASK_PLAYERS = "How many players? Anywhere from one to six."
 
+# No end punctuation: the game adds "." or ", or choose Holiday!" in season.
+ASK_CATEGORY = "Pick a category for Pop Quiz, like 70s, 80s, or 2020s"
+
 CELEBRATIONS = [
     "Take a bow, you absolute music legend!",
     "Somebody call the Grammys!",

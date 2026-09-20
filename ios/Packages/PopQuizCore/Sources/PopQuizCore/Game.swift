@@ -42,6 +42,8 @@ public final class Game<RNG: RandomNumberGenerator> {
     public private(set) var round = 0  // 0-based
     public private(set) var turn = 0  // 0-based player index
     public private(set) var clip: Clip?
+    /// The categories on offer, which excludes holiday out of season.
+    public let categories: [String]
 
     private let library: Library
     private let announceScoresBeforeBonus: Bool
@@ -59,11 +61,17 @@ public final class Game<RNG: RandomNumberGenerator> {
         }
     }
 
-    public init(library: Library, rng: RNG, announceScoresBeforeBonus: Bool = false) {
+    public init(
+        library: Library,
+        rng: RNG,
+        announceScoresBeforeBonus: Bool = false,
+        showHoliday: Bool = Settings.inHolidaySeason()
+    ) {
         self.library = library
         self.rng = rng
         self.announceScoresBeforeBonus = announceScoresBeforeBonus
-        self.aliases = library.order.map {
+        self.categories = library.order.filter { showHoliday || $0 != Settings.holidayCategory }
+        self.aliases = categories.map {
             ($0, Grading.categoryAliases($0, extra: Settings.aliases(for: $0)))
         }
     }
@@ -116,11 +124,8 @@ public final class Game<RNG: RandomNumberGenerator> {
     }
 
     private func categoryPrompt() -> String {
-        let names = library.order.map { $0.replacingOccurrences(of: "_", with: " ") }
-        let listed = names.count > 1
-            ? names.dropLast().joined(separator: ", ") + ", or \(names.last!)"
-            : names.first ?? ""
-        return "Pick a category: \(listed)."
+        let ending = categories.contains(Settings.holidayCategory) ? ", or choose Holiday!" : "."
+        return Phrases.askCategory + ending
     }
 
     private func onCategory(_ said: String) -> Reply {
@@ -133,7 +138,7 @@ public final class Game<RNG: RandomNumberGenerator> {
 
     /// Pick the category directly (the category buttons on screen).
     public func choose(category: String) -> Reply {
-        guard state == .category, library.categories[category] != nil else {
+        guard state == .category, categories.contains(category) else {
             return Reply(speech: prompt, listen: true)
         }
         self.category = category

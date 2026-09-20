@@ -7,12 +7,14 @@ to say and whether to play a clip or keep listening; the caller does the I/O.
 
 from __future__ import annotations
 
+import datetime
 import random
 import time
 from dataclasses import dataclass
 
 from . import grading, phrases
 from .const import (
+    ALWAYS_SHOW_HOLIDAY,
     ANNOUNCE_SCORES_BEFORE_BONUS,
     BONUS_ROUND,
     CATEGORY_ALIASES,
@@ -20,6 +22,9 @@ from .const import (
     DIFFICULT,
     EASY,
     HARDER,
+    HOLIDAY_CATEGORY,
+    HOLIDAY_FROM,
+    HOLIDAY_UNTIL,
     MAX_PLAYERS,
     MIN_PLAYERS,
     ROUNDS,
@@ -55,19 +60,34 @@ _FALLBACK = {
 }
 
 
+def in_holiday_season(today: datetime.date | None = None) -> bool:
+    """Whether today falls in the holiday window, which wraps the new year."""
+    today = today or datetime.date.today()
+    day = (today.month, today.day)
+    return day >= HOLIDAY_FROM or day <= HOLIDAY_UNTIL
+
+
 class Game:
     def __init__(
         self,
         library: Library,
         rng: random.Random | None = None,
         announce_scores_before_bonus: bool = ANNOUNCE_SCORES_BEFORE_BONUS,
+        show_holiday: bool | None = None,
     ) -> None:
         self._library = library
         self._announce_scores = announce_scores_before_bonus
         self._rng = rng or random.Random()
+        if show_holiday is None:
+            show_holiday = ALWAYS_SHOW_HOLIDAY or in_holiday_season()
+        self.categories = [
+            c
+            for c in library.categories
+            if show_holiday or c != HOLIDAY_CATEGORY
+        ]
         self._aliases = {
             c: grading.category_aliases(c, CATEGORY_ALIASES.get(c, []))
-            for c in library.categories
+            for c in self.categories
         }
         self._state = _PLAYERS
         self._prompt = ""  # the last question asked, for "repeat"
@@ -119,9 +139,8 @@ class Game:
         return Reply(f"{who} {self._prompt}", listen=True)
 
     def _category_prompt(self) -> str:
-        names = [c.replace("_", " ") for c in self._library.categories]
-        listed = ", ".join(names[:-1]) + f", or {names[-1]}" if len(names) > 1 else names[0]
-        return f"Pick a category: {listed}."
+        ending = ", or choose Holiday!" if HOLIDAY_CATEGORY in self.categories else "."
+        return f"{phrases.ASK_CATEGORY}{ending}"
 
     def _on_category(self, said: str) -> Reply:
         if grading.is_repeat(said):

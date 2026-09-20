@@ -27,6 +27,8 @@ final class Quiz {
     private(set) var round = 0
     private(set) var turn = 0
     private(set) var category = ""
+    /// The categories this game offers: the decades, plus holiday in season.
+    private(set) var availableCategories: [String] = []
 
     // Settings, remembered between launches.
     private var clipSourceSetting = UserDefaults.standard.string(forKey: "clipSource") ?? "" {
@@ -37,6 +39,10 @@ final class Quiz {
     }
     var announceScoresBeforeBonus = UserDefaults.standard.bool(forKey: "announceScores") {
         didSet { UserDefaults.standard.set(announceScoresBeforeBonus, forKey: "announceScores") }
+    }
+    /// Offer the seasonal categories whatever the date.
+    var extendedPlaylists = UserDefaults.standard.bool(forKey: "extendedPlaylists") {
+        didSet { UserDefaults.standard.set(extendedPlaylists, forKey: "extendedPlaylists") }
     }
 
     var clipSource: ClipSource {
@@ -56,6 +62,9 @@ final class Quiz {
 
     var isPlaying: Bool { game != nil && phase != .over }
 
+    /// Whether the holiday category is on offer, and why.
+    var holidayAvailable: Bool { extendedPlaylists || Settings.inHolidaySeason() }
+
     // MARK: setup
 
     func load() async {
@@ -70,6 +79,7 @@ final class Quiz {
             return
         }
         self.library = library
+        for warning in library.warnings { Diagnostics.log(warning) }
         listener.contextualStrings = Vocabulary.contextualStrings(library)
         guard listener.onDevice else {
             Diagnostics.log("on-device recognition unavailable")
@@ -111,8 +121,16 @@ final class Quiz {
         }
         UIApplication.shared.isIdleTimerDisabled = true
         speaker.voiceIdentifier = voiceIdentifier.isEmpty ? nil : voiceIdentifier
-        let game = Game(library: library, rng: SystemRandomNumberGenerator(), announceScoresBeforeBonus: announceScoresBeforeBonus)
+        let game = Game(
+            library: library,
+            rng: SystemRandomNumberGenerator(),
+            announceScoresBeforeBonus: announceScoresBeforeBonus,
+            showHoliday: holidayAvailable)
         self.game = game
+        availableCategories = game.categories
+        Diagnostics.log(
+            "game start: extended \(extendedPlaylists), in season \(Settings.inHolidaySeason()), "
+                + "categories \(game.categories.joined(separator: ","))")
         lastResult = nil
         silentTurns = 0
         run(game.start())

@@ -1,6 +1,8 @@
 // Pop Quiz rules and tunable numbers. Mirrors custom_components/popquiz/const.py;
 // keep the two in step so the iPhone and Home Assistant games play the same.
 
+import Foundation
+
 public enum Difficulty: String, Sendable, CaseIterable {
     case easy, harder, difficult
 }
@@ -51,7 +53,22 @@ public enum Settings {
         ("two_thousands", ["2000s", "two thousand", "the aughts", "noughties"]),
         ("twenty_tens", ["2010s", "twenty ten", "the tens"]),
         ("twenty_twenties", ["2020s", "twenty twenty"]),
+        ("holiday", ["holidays", "christmas", "xmas", "christmas music", "holiday music"]),
     ]
+
+    /// The holiday category is seasonal: it is offered only between these two
+    /// dates, inclusive, which wrap around the new year. The "extended
+    /// playlists" setting offers it whatever the date.
+    public static let holidayCategory = "holiday"
+    public static let holidayFrom = (11, 20)
+    public static let holidayUntil = (1, 6)
+
+    /// Whether `date` falls inside the holiday window.
+    public static func inHolidaySeason(_ date: Date = Date(), calendar: Calendar = .current) -> Bool {
+        let parts = calendar.dateComponents([.month, .day], from: date)
+        guard let month = parts.month, let day = parts.day else { return false }
+        return (month, day) >= holidayFrom || (month, day) <= holidayUntil
+    }
 
     public static func aliases(for category: String) -> [String] {
         categoryAliases.first { $0.category == category }?.aliases ?? []

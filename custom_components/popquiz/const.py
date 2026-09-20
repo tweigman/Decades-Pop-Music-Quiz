@@ -64,7 +64,19 @@ CATEGORY_ALIASES = {
     "two_thousands": ["2000s", "two thousand", "the aughts", "noughties"],
     "twenty_tens": ["2010s", "twenty ten", "the tens"],
     "twenty_twenties": ["2020s", "twenty twenty"],
+    "holiday": ["holidays", "christmas", "xmas", "christmas music", "holiday music"],
 }
+
+# The holiday category is seasonal: it is offered only between these two dates
+# (month, day), inclusive, which wrap around the new year. Everything else is
+# available all year.
+HOLIDAY_CATEGORY = "holiday"
+HOLIDAY_FROM = (11, 20)
+HOLIDAY_UNTIL = (1, 6)
+
+# Offer the holiday category whatever the date. The iPhone app has this as the
+# "extended playlists" setting; here it is a straight edit.
+ALWAYS_SHOW_HOLIDAY = False
 
 # Seconds to wait after the satellite finishes speaking before playing a
 # clip. Raise this if the end of the spoken text gets cut off.

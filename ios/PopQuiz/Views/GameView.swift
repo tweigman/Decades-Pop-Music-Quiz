@@ -102,7 +102,7 @@ struct GameView: View {
 
     private var categoryButtons: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-            ForEach(quiz.library?.order ?? [], id: \.self) { category in
+            ForEach(quiz.availableCategories, id: \.self) { category in
                 Button {
                     quiz.choose(category: category)
                 } label: {

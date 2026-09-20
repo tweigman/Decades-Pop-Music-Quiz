@@ -1,5 +1,6 @@
 """Tests for the game engine and answer matching. Run: python3 -m unittest -v"""
 
+import datetime
 import random
 import unittest
 from pathlib import Path
@@ -7,7 +8,7 @@ from pathlib import Path
 from custom_components.popquiz import grading
 from custom_components.popquiz.const import CLIP_SECONDS, ROUNDS
 from custom_components.popquiz.data import Library, Song
-from custom_components.popquiz.game import Game
+from custom_components.popquiz.game import Game, in_holiday_season
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -113,11 +114,47 @@ class FakeLibrary(Library):
             + [song(f"Hard {i}", "Artist", peak=50, length=4.0) for i in range(5)]
             + [song(f"Unranked {i}", "Artist", peak=None, length=4.0) for i in range(5)],
             "nineties": [song("Other", "Artist")],
+            "holiday": [song("Jingle Bells", "Artist", peak=None, level="easy")],
         }
+
+
+class HolidaySeasonTest(unittest.TestCase):
+    def test_window_wraps_the_new_year(self):
+        for month, day, want in [
+            (11, 19, False), (11, 20, True), (12, 25, True),
+            (1, 6, True), (1, 7, False), (9, 20, False),
+        ]:
+            date = datetime.date(2026, month, day)
+            self.assertEqual(in_holiday_season(date), want, date)
+
+
+class HolidayCategoryTest(unittest.TestCase):
+    def game(self, show_holiday):
+        game = Game(FakeLibrary(), random.Random(1), show_holiday=show_holiday)
+        game.start()
+        return game, game.handle("one").speech
+
+    def test_hidden_out_of_season(self):
+        game, prompt = self.game(False)
+        self.assertNotIn("holiday", game.categories)
+        self.assertIn("Pick a category for Pop Quiz, like 70s, 80s, or 2020s.", prompt)
+        self.assertNotIn("Holiday", prompt)
+        # Asking for it anyway gets the prompt again, not a holiday game.
+        reply = game.handle("holiday")
+        self.assertIn("didn't catch that", reply.speech)
+        self.assertEqual(game.category, "")
+
+    def test_offered_in_season(self):
+        game, prompt = self.game(True)
+        self.assertIn("holiday", game.categories)
+        self.assertIn("2020s, or choose Holiday!", prompt)
+        self.assertIn("Holiday it is", game.handle("christmas").speech)
+        self.assertEqual(game.category, "holiday")
 
 
 class GameTest(unittest.TestCase):
     def new_game(self, players, **options):
+        options.setdefault("show_holiday", False)
         game = Game(FakeLibrary(), random.Random(1), **options)
         self.assertIn("How many players", game.start().speech)
         game.handle(str(players))
@@ -188,7 +225,7 @@ class GameTest(unittest.TestCase):
         self.assertIn("tie between Player 1 and Player 2", reply.speech)
 
     def test_bad_player_count_reprompts(self):
-        game = Game(FakeLibrary())
+        game = Game(FakeLibrary(), show_holiday=False)
         game.start()
         self.assertIn("from 1 to 6", game.handle("nine").speech)
         self.assertIn("Pick a category", game.handle("two").speech)

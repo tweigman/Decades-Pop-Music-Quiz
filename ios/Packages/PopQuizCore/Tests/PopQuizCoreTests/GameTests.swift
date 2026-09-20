@@ -16,8 +16,43 @@ struct SplitMix64: RandomNumberGenerator {
     }
 }
 
-func song(_ title: String, _ artists: String..., peak: Int? = 1, length: Double = 30) -> Song {
-    Song(title: title, artists: artists, peak: peak, file: "\(title).mp3", previewURL: nil, length: length)
+func song(
+    _ title: String, _ artists: String..., peak: Int? = 1, length: Double = 30,
+    level: Difficulty? = nil
+) -> Song {
+    Song(
+        title: title, artists: artists, peak: peak, file: "\(title).mp3", previewURL: nil,
+        length: length, levelOverride: level)
+}
+
+@Suite struct DifficultyTests {
+    @Test func derivedFromPeakByDefault() {
+        #expect(song("a", peak: 1).difficulty == .easy)
+        #expect(song("b", peak: 12).difficulty == .harder)
+        #expect(song("c", peak: 50).difficulty == .difficult)
+        #expect(song("d", peak: nil).difficulty == .difficult)
+    }
+
+    /// Needed for categories where chart position is a poor proxy.
+    @Test func overrideWinsOverPeak() {
+        #expect(song("e", peak: nil, level: .easy).difficulty == .easy)
+        #expect(song("f", peak: 1, level: .difficult).difficulty == .difficult)
+    }
+}
+
+@Suite struct HolidaySeasonTests {
+    func date(_ month: Int, _ day: Int) -> Date {
+        Calendar.current.date(from: DateComponents(year: 2026, month: month, day: day))!
+    }
+
+    @Test func windowWrapsTheNewYear() {
+        for (month, day, want) in [
+            (11, 19, false), (11, 20, true), (12, 25, true),
+            (1, 6, true), (1, 7, false), (9, 20, false),
+        ] {
+            #expect(Settings.inHolidaySeason(date(month, day)) == want, "\(month)/\(day)")
+        }
+    }
 }
 
 @Suite struct GradingTests {
@@ -90,11 +125,14 @@ func song(_ title: String, _ artists: String..., peak: Int? = 1, length: Double 
                 + (0..<5).map { song("Hard \($0)", "Artist", peak: 50, length: 4) }
                 + (0..<5).map { song("Unranked \($0)", "Artist", peak: nil, length: 4) },
             "nineties": [song("Other", "Artist")],
+            "holiday": [song("Jingle Bells", "Artist", peak: nil, level: .easy)],
         ])
     }
 
     func newGame(_ players: Int, announceScores: Bool = false) -> (Game<SplitMix64>, Reply) {
-        let game = Game(library: Self.fakeLibrary(), rng: SplitMix64(state: 1), announceScoresBeforeBonus: announceScores)
+        let game = Game(
+            library: Self.fakeLibrary(), rng: SplitMix64(state: 1),
+            announceScoresBeforeBonus: announceScores, showHoliday: false)
         #expect(game.start().speech.contains("How many players"))
         _ = game.handle("\(players)")
         let reply = game.handle("eighties")
@@ -168,10 +206,39 @@ func song(_ title: String, _ artists: String..., peak: Int? = 1, length: Double 
     }
 
     @Test func badPlayerCountReprompts() {
-        let game = Game(library: Self.fakeLibrary(), rng: SystemRandomNumberGenerator())
+        let game = Game(
+            library: Self.fakeLibrary(), rng: SystemRandomNumberGenerator(), showHoliday: false)
         _ = game.start()
         #expect(game.handle("nine").speech.contains("from 1 to 6"))
         #expect(game.handle("two").speech.contains("Pick a category"))
+    }
+
+    func holidayGame(_ showHoliday: Bool) -> (Game<SplitMix64>, String) {
+        let game = Game(
+            library: Self.fakeLibrary(), rng: SplitMix64(state: 1), showHoliday: showHoliday)
+        _ = game.start()
+        return (game, game.handle("one").speech)
+    }
+
+    @Test func holidayHiddenOutOfSeason() {
+        let (game, prompt) = holidayGame(false)
+        #expect(!game.categories.contains("holiday"))
+        #expect(prompt.contains("Pick a category for Pop Quiz, like 70s, 80s, or 2020s."))
+        #expect(!prompt.contains("Holiday"))
+        // Asking for it anyway gets the prompt again, not a holiday game.
+        #expect(game.handle("holiday").speech.contains("didn't catch that"))
+        #expect(game.category == "")
+        // Nor can a button reach it.
+        #expect(game.choose(category: "holiday").speech.contains("Pick a category"))
+        #expect(game.category == "")
+    }
+
+    @Test func holidayOfferedInSeason() {
+        let (game, prompt) = holidayGame(true)
+        #expect(game.categories.contains("holiday"))
+        #expect(prompt.contains("2020s, or choose Holiday!"))
+        #expect(game.handle("christmas").speech.contains("Holiday it is"))
+        #expect(game.category == "holiday")
     }
 
     @Test func replaceClipPicksAnotherSong() {
@@ -191,11 +258,26 @@ func song(_ title: String, _ artists: String..., peak: Int? = 1, length: Double 
         let stems = try FileManager.default.contentsOfDirectory(atPath: Self.repo.appending(path: "categories").path)
             .filter { $0.hasSuffix(".csv") }.map { String($0.dropLast(4)) }
         #expect(Set(lib.order) == Set(stems))
-        #expect(Array(lib.order.prefix(7)) == Settings.categoryAliases.map(\.category))
+        // Known categories come first, in the order Settings lists them.
+        #expect(Array(lib.order.prefix(Settings.categoryAliases.count)) == Settings.categoryAliases.map(\.category))
         #expect(lib.allSongs.count > 1500)
         for name in lib.order {
             #expect(lib.songs(name, .easy).count >= 18, "\(name)")
         }
         #expect(lib.allSongs.allSatisfy { $0.previewURL != nil })
+        #expect(lib.warnings.isEmpty, "\(lib.warnings.prefix(3))")
+    }
+
+    /// The Difficulty column decides holiday's levels, and must land on the
+    /// same split as the Python loader: 55 easy, 68 harder, 67 difficult.
+    @Test(.enabled(if: FileManager.default.fileExists(atPath: repo.appending(path: "categories/holiday.csv").path)))
+    func holidayUsesTheDifficultyColumn() throws {
+        let lib = try Library(dataDir: Self.repo)
+        let holiday = try #require(lib.categories["holiday"])
+        #expect(holiday.count == 190)
+        #expect(holiday.filter { $0.levelOverride != nil }.count == 145)
+        #expect(holiday.filter { $0.difficulty == .easy }.count == 55)
+        #expect(holiday.filter { $0.difficulty == .harder }.count == 68)
+        #expect(holiday.filter { $0.difficulty == .difficult }.count == 67)
     }
 }

@@ -8,6 +8,9 @@ public enum Phrases {
 
     public static let askPlayers = "How many players? Anywhere from one to six."
 
+    /// No end punctuation: the game adds "." or ", or choose Holiday!" in season.
+    public static let askCategory = "Pick a category for Pop Quiz, like 70s, 80s, or 2020s"
+
     public static let celebrations = [
         "Take a bow, you absolute music legend!",
         "Somebody call the Grammys!",

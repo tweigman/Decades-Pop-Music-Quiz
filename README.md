@@ -192,6 +192,13 @@ easy/harder/difficult, points per round, match strictness) are in
 `custom_components/popquiz/const.py`. Players can say **repeat**, **skip**,
 or **exit game now** at any point.
 
+**Holiday is seasonal.** It is offered only from **November 20th to January
+6th** inclusive, and is otherwise absent from the spoken category list and
+unselectable even if asked for by name. `ALWAYS_SHOW_HOLIDAY = True` in
+`const.py` offers it year-round; `HOLIDAY_FROM` and `HOLIDAY_UNTIL` move the
+window. In season the category prompt gains "or choose Holiday!", and
+"christmas", "xmas" and "holidays" all select it.
+
 The bonus-round build-up sound goes at `sounds/bonus_intro.mp3` (gitignored).
 Without it, the bonus round just has no intro sound.
 
@@ -261,9 +268,15 @@ app and Settings offers *On this iPhone* or *Stream*. Without them the app
 streams every clip from its `Preview URL`. Either way `previews/index.csv` is
 bundled, because it holds the clip lengths.
 
+**Holiday is seasonal here too**, on the same dates, and the **Enable
+extended playlists** setting in the app offers it year-round — the equivalent
+of `ALWAYS_SHOW_HOLIDAY`. Out of season the Holiday button is absent and the
+word isn't accepted; tests cover both.
+
 **Same rules as Home Assistant.** `PopQuizCore` is a line-for-line port of
 `game.py`, `grading.py` and `const.py`, and ships `Settings.swift` in place of
-`const.py`: **change a rule in both.** Python's `difflib` scoring is ported
+`const.py`, including the `Difficulty` override column and the holiday
+window: **change a rule in both.** Python's `difflib` scoring is ported
 exactly, and `GradingParityTests` checks the Swift grader against ~17,000
 decisions recorded from Python. After editing `grading.py`, regenerate them:
 `python3 ios/scripts/make_grading_fixtures.py`.
