@@ -48,7 +48,11 @@ def status(paths=None):
         clips = [r for r in rows if r.get("MP3 File") and
                  os.path.isfile(os.path.join("previews", r["MP3 File"]))]
         peaks = [r for r in rows if r.get("Peak (Hot 100)")]
-        easy = [r for r in peaks if int(float(r["Peak (Hot 100)"])) <= EASY_MAX_PEAK]
+        # Mirror data.py: the Difficulty override wins, peak is the fallback.
+        easy = [r for r in rows if (r.get("Difficulty") or "").strip().lower() == "easy"
+                or (not (r.get("Difficulty") or "").strip()
+                    and r.get("Peak (Hot 100)")
+                    and int(float(r["Peak (Hot 100)"])) <= EASY_MAX_PEAK)]
 
         if not clips:
             state = "NOT PLAYABLE — run download_previews.py"
