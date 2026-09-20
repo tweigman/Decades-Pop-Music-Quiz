@@ -19,7 +19,12 @@ charted, the more likely a player knows it.
 | `two_thousands` | 232 | 204 | 16 | 5 |
 | `twenty_tens` | 150 | 130 | 10 | 17 |
 | `twenty_twenties` | 150 | 131 | 4 | 44 |
-| **Total** | **1540** | **1272** | | **286** |
+| `holiday` | 190 | 65 | 26 | 2 |
+| **Total** | **1730** | **1337** | | **288** |
+
+`holiday` is the one non-decade category so far. Only 65 of its songs ever
+charted, so its difficulty comes mostly from the `Difficulty` column rather
+than the peak — see below.
 
 Categories are identified by filename stem, so a non-decade list only needs
 to be dropped in as `categories/holiday.csv` — no code change.
@@ -44,7 +49,7 @@ to be dropped in as `categories/holiday.csv` — no code change.
 
 ```
 categories/   one CSV per quiz category
-previews/     1,533 clips + index.csv (gitignored, ~516 MB)
+previews/     1,734 clips + index.csv (gitignored, ~582 MB)
 raw/          original URL lists, pre-curation
 *.py          data pipeline, plus play_cli.py
 custom_components/popquiz/   the Home Assistant integration
@@ -57,12 +62,21 @@ tests/, tests_ha/            unit tests; tests inside Home Assistant
 Every script is re-runnable and resumable; re-running only fills gaps.
 
 ```bash
-python3 spotify_to_csv.py raw/holiday.txt categories/holiday.csv  # metadata
+python3 new_category.py raw/Holiday.txt     # all three steps, in order
+```
+
+That is the way to add a category: running the steps by hand risks leaving
+one part-built, which makes it silently unplayable. The individual steps are
+still there if a single stage needs re-running:
+
+```bash
+python3 spotify_to_csv.py raw/Holiday.txt categories/holiday.csv  # metadata
 python3 download_previews.py categories/holiday.csv               # audio
 python3 add_chart_peaks.py categories/holiday.csv                 # chart peaks
 ```
 
-Run with no arguments to process every category at once.
+Run any of them with no arguments to process every category at once, and
+`new_category.py` bare for a health report.
 
 | Script | Role |
 |---|---|
@@ -71,6 +85,8 @@ Run with no arguments to process every category at once.
 | `add_chart_peaks.py` | Joins the Billboard Hot 100 archive |
 | `clean_titles.py` | Title cleaning, also runnable standalone |
 | `fetch_spotify_meta.py` | Low-level page scrapers (module) |
+| `new_category.py` | Runs all three steps; bare, reports every category's state |
+| `classify_holiday.py` | The hand difficulty assignments for `holiday` |
 
 No API key, OAuth, or subscription. Metadata comes from Spotify's public
 embed pages, which expose a JSON blob with artists, duration and a preview
@@ -84,7 +100,7 @@ overall because no time is lost to backoff — 260 tracks in about 90 seconds.
 
 ## Gotchas
 
-**Clips are not all 30 seconds.** Lengths run 14.7s to 29.8s; **249 of 1,533
+**Clips are not all 30 seconds.** Lengths run 14.7s to 29.8s; **299 of 1,734
 are under 25s**. Anything picking a random offset must read the per-file
 length from `previews/index.csv` rather than assuming a fixed window. The
 `twenty_twenties` category is the worst affected.
@@ -95,9 +111,9 @@ sorting, unreliable as a quiz answer.
 
 **Chart peak is a poor difficulty proxy outside the decade categories.**
 A song with no Hot 100 match counts as *difficult*, which is fine for the
-decades but wrong for `holiday`: 129 of its 201 songs never charted, so
-*O Holy Night* and *Winter Wonderland* rank as hard as anything in the set.
-Fill the `Difficulty` column to override, song by song — see below.
+decades but wrong for `holiday`: 125 of its 190 songs never charted, so left
+to the peak, *O Holy Night* ranked as hard as anything in the set. That is
+what the `Difficulty` column is for — see below.
 
 **A blank `Peak` means "no match found", not "never charted."** 83% matched.
 The Hot 100 is US-only, so UK and European hits legitimately have none, and
@@ -110,11 +126,18 @@ roughly 60 rows removed during curation — duplicates, live and remaster
 variants, and songs that belonged to a different decade. Regenerating a
 category from `raw/` resurrects them. **The CSVs are the source of truth.**
 
-**Deduplication rule.** Songs are unique within and across categories,
-resolved by *earliest* release year across all entries, on the basis that
-re-releases only ever push a year later. This is decade-specific logic — a
-future `holiday` category will legitimately overlap the decade ones and
-should not be deduplicated against them.
+**Deduplication rule.** Songs are unique within each category and across the
+decade categories, resolved by *earliest* release year, on the basis that
+re-releases only ever push a year later.
+
+Cross-category deduplication is decade-specific. `holiday` overlaps the
+decades legitimately — *All I Want For Christmas Is You* belongs in both — so
+it is deduplicated only against itself, and the same goes for any future
+non-decade category.
+
+Note that `spotify_to_csv.py` only catches repeats of the same Spotify *id*.
+The same recording issued on two albums has two ids, so title-plus-artist
+duplicates still need a look; eleven of them were removed from `holiday`.
 
 ## Difficulty
 
@@ -136,15 +159,21 @@ alone entirely. An unrecognised value logs a warning and falls back to the
 peak rather than failing the load.
 
 This exists because the chart-peak proxy only works where most songs charted.
-`holiday` is the case it was added for: its `Difficulty` column is currently
-blank throughout, so the category still skews hard until it's filled in.
+`holiday` is the case it was added for. Left to the peak it came out 8 easy /
+15 harder / 178 difficult, with *Silent Night* ranked as hard as anything in
+the set. `classify_holiday.py` holds the hand assignments — 145 of its 190
+rows — and writes the column; it is keyed by Spotify track id, defaults to a
+dry run, and re-applying is idempotent. The category now reads **55 easy,
+68 harder, 67 difficult**.
+
+Expect to do the same for any future category where most songs never charted.
 
 Check where a category stands with `python3 new_category.py`, which reports
 song, clip, peak and easy-pool counts per category.
 
 ## Audio clips
 
-`previews/` is gitignored. It holds 516 MB of third-party copyrighted audio
+`previews/` is gitignored. It holds 582 MB of third-party copyrighted audio
 downloaded from Spotify's public preview endpoint — appropriate for private,
 local quiz use, but it should not be committed or redistributed. The clips
 are ~96 kbps, fine through a speaker and noticeably compressed on headphones.
