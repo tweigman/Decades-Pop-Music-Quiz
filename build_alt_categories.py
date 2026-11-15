@@ -6,7 +6,8 @@
 
 Unlike categories/, which starts from Spotify playlists, these lists start
 from the Hot 100 archive itself: every song that peaked at --max-peak or
-better, in the order it first charted. Preview columns are left blank, to be
+better and stayed at least --min-weeks on the chart, in the order it first
+charted. Preview columns are left blank, to be
 filled in by a later step.
 
 A song belongs to the decade it FIRST charted in, not the one it peaked in.
@@ -110,10 +111,14 @@ def is_holiday(s):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--max-peak", type=int, default=20)
+    ap.add_argument("--min-weeks", type=int, default=5,
+                    help="drop songs with a shorter chart run (album tracks "
+                         "that charted in release week and vanished)")
     args = ap.parse_args()
 
     load_hot100(CACHE)  # downloads the archive if it is missing
-    songs = [s for s in collect(CACHE) if s["peak"] <= args.max_peak]
+    songs = [s for s in collect(CACHE)
+             if s["peak"] <= args.max_peak and len(s["weeks"]) >= args.min_weeks]
     os.makedirs(OUT_DIR, exist_ok=True)
 
     holiday = sorted((s for s in songs if is_holiday(s)), key=lambda s: s["first"])
