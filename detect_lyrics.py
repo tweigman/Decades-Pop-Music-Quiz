@@ -171,7 +171,10 @@ def merge(paths):
     done = load_results()
     for path in paths:
         with open(path, newline="") as f:
-            rows = list(csv.DictReader(f))
+            reader = csv.DictReader(f)
+            rows = list(reader)
+        # Keep the file's own columns (holiday has 'Full Artist').
+        fields = reader.fieldnames + [c for c in FIELDS if c not in reader.fieldnames]
         hit = 0
         for r in rows:
             res = done.get(r.get("Preview URL", ""))
@@ -180,7 +183,7 @@ def merge(paths):
             hit += bool(res)
         tmp = path + ".tmp"
         with open(tmp, "w", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=FIELDS, extrasaction="ignore")
+            w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
             w.writeheader()
             w.writerows(rows)
         os.replace(tmp, path)

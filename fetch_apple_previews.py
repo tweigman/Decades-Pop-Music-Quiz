@@ -5,6 +5,7 @@
     python3 fetch_apple_previews.py altcategories/eighties.csv
     python3 fetch_apple_previews.py --limit 40              # first 40 unfilled rows per file
     python3 fetch_apple_previews.py --retry                 # redo 'none' and 'check' rows
+    python3 fetch_apple_previews.py --ignore-year altcategories/holiday.csv
 
 Uses the iTunes Search API: no key, but rate-limited to roughly 20 searches
 a minute, so a full run takes hours. It is resumable: progress is saved every
@@ -45,6 +46,7 @@ BAD = re.compile(r"\b(live|karaoke|tribute|re-?record(?:ed|ing)?|remix|instrumen
 NUM = {"part": "pt", "ii": "2", "iii": "3", "two": "2", "one": "1", "i": "1"}
 
 delay = 1.5  # seconds between searches; raised automatically if Apple objects
+ignore_year = False  # holiday standards: the row's year says little about the recording
 
 
 def words(s):
@@ -100,8 +102,9 @@ def search(term):
 
 def pick(row, results):
     """Best candidate as (score, flags, result), or None."""
-    want_title, want_art = row["Title"].split("/")[0], artist_tokens(row["Artist(s)"])
-    year = int(row["Year"])
+    want_title = (row.get("Clean Title") or row["Title"]).split("/")[0]
+    want_art = artist_tokens(row["Artist(s)"])
+    year = int(row["Year"] or 0)
     best = None
     for r in results:
         if not r.get("previewUrl") or r.get("kind") != "song":
@@ -117,6 +120,8 @@ def pick(row, results):
             gap = abs(int(r.get("releaseDate", "")[:4]) - year)
         except ValueError:
             gap = 99
+        if ignore_year:
+            gap = 0
         sure = same_artist(row["Artist(s)"], r.get("artistName", ""))
         score = (ts - (0.5 if bad else 0) - (0 if sure else 0.4)
                  + (0.1 if gap <= 2 else 0.05 if gap <= 5 else 0))
@@ -127,10 +132,11 @@ def pick(row, results):
 
 def lookup(row):
     """Fill one row in place. Returns False if the search itself failed."""
-    title = PAREN.sub(" ", row["Title"].split("/")[0]).strip() or row["Title"]
+    name = row.get("Clean Title") or row["Title"]
+    title = PAREN.sub(" ", name.split("/")[0]).strip() or name
     lead = SPLIT.split(row["Artist(s)"])[0].strip()
     best = None
-    for term in (f"{title} {lead}", f"{row['Title']} {row['Artist(s)']}", title):
+    for term in (f"{title} {lead}", f"{name} {row['Artist(s)']}", title):
         results = search(term)
         if results is None:
             return False
@@ -152,10 +158,10 @@ def lookup(row):
     return True
 
 
-def save(path, rows):
+def save(path, rows, fields=FIELDS):
     tmp = path + ".tmp"
     with open(tmp, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=FIELDS, extrasaction="ignore")
+        w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         w.writeheader()
         w.writerows(rows)
     os.replace(tmp, path)
@@ -166,10 +172,18 @@ def main():
     ap.add_argument("paths", nargs="*")
     ap.add_argument("--limit", type=int, help="stop after this many lookups per file")
     ap.add_argument("--retry", action="store_true", help="redo 'none' and 'check' rows")
+    ap.add_argument("--ignore-year", action="store_true",
+                    help="don't flag a match because its release year differs")
     args = ap.parse_args()
+    global ignore_year
+    ignore_year = args.ignore_year
 
     for path in args.paths or sorted(glob.glob(GLOB)):
-        rows = list(csv.DictReader(open(path, newline="")))
+        with open(path, newline="") as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+        # Keep the file's own columns (holiday has 'Full Artist').
+        fields = reader.fieldnames + [c for c in FIELDS if c not in reader.fieldnames]
         todo = [r for r in rows if not r.get("Match")
                 or (args.retry and r["Match"] in ("none", "check"))]
         if args.limit:
@@ -178,10 +192,10 @@ def main():
         for i, r in enumerate(todo, 1):
             if not lookup(r):
                 print("   search failed repeatedly; stopping. Re-run to resume.")
-                save(path, rows)
+                save(path, rows, fields)
                 sys.exit(1)
             if i % 20 == 0 or i == len(todo):
-                save(path, rows)
+                save(path, rows, fields)
                 print(f"   {i}/{len(todo)}", flush=True)
         tally = {k: sum(1 for r in rows if r.get("Match") == k) for k in ("ok", "check", "none")}
         print(f"   ok {tally['ok']}  check {tally['check']}  none {tally['none']}  "
