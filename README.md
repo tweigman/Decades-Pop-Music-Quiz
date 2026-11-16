@@ -255,7 +255,6 @@ Skip, Type) work too.
 
 ```bash
 cd ios && ./install.sh                  # build and install on the plugged-in iPhone
-BUNDLE_CLIPS=NO ./install.sh            # small build; clips stream instead
 cd ios/Packages/PopQuizCore && swift test   # game + grading tests, on the Mac
 ```
 
@@ -263,22 +262,52 @@ Needs Xcode (sign in under Settings → Accounts) and `brew install xcodegen`;
 the Xcode project is generated from `ios/project.yml`. The phone needs
 Developer Mode on (Settings → Privacy & Security).
 
-**Clips.** With `BUNDLE_CLIPS=YES` (the default) the MP3s are copied into the
-app and Settings offers *On this iPhone* or *Stream*. Without them the app
-streams every clip from its `Preview URL`. Either way `previews/index.csv` is
-bundled, because it holds the clip lengths.
+**It plays the chart lists, streamed.** From version 2.0 the app reads
+`altcategories/` (7,862 Hot 100 hits across nine categories), not
+`categories/`, and carries no audio: each clip is streamed from its Apple
+`Preview URL` when needed, held in a temporary folder for the session and
+cleared at launch. The app is about 8 MB and needs a connection to play. Only
+rows with `Match` = `ok` load; a song that fails to stream is swapped for
+another.
+
+**Rounds pair how famous a song is with where the clip is cut**, using the
+vocal timings in the CSV:
+
+| Round | Song | Clip |
+|---|---|---|
+| Easy (×3) | Peak 1–5 | Where the singing is: at least 6 of its 8 seconds sung |
+| Medium | Coin flip: peak 6–15, or peak 1–5 | The singing for the lesser hit; a stretch with under a second of singing for the top hit |
+| Hard | Peak 16+, or sung for under 40% of the preview, or only short vocal bursts | Anywhere for the lesser hit; the quietest stretch for a sparse one |
+
+When a recipe runs out of unplayed songs the next-nearest one is used. Holiday
+keeps its hand-set `Difficulty` column in place of the peak. The numbers live
+in `Settings.swift` (`lyricSeconds`, `instrumentalSeconds`,
+`sparseVocalShare`).
+
+**Chart credits are split into people.** "Kenny Rogers Duet With Dolly Parton"
+accepts either name and is read as "Kenny Rogers and Dolly Parton";
+`ArtistCredit.swift` has the rules, which leave "Earth, Wind & Fire" whole.
+Apple's name for the artist is accepted too, and either side of a double
+A-side ("Come Together/Something") earns the song point.
+
+**Every song is credited.** The card after each answer links to the song on
+Apple Music, and the game ends on a set list of everything played, each row a
+link. Apple's terms allow previews to promote the songs, streamed and shown
+with a link back, and this is that.
 
 **Holiday is seasonal here too**, on the same dates, and the **Enable
 extended playlists** setting in the app offers it year-round — the equivalent
 of `ALWAYS_SHOW_HOLIDAY`. Out of season the Holiday button is absent and the
 word isn't accepted; tests cover both.
 
-**Same rules as Home Assistant.** `PopQuizCore` is a line-for-line port of
-`game.py`, `grading.py` and `const.py`, and ships `Settings.swift` in place of
-`const.py`, including the `Difficulty` override column and the holiday
-window: **change a rule in both.** Python's `difflib` scoring is ported
-exactly, and `GradingParityTests` checks the Swift grader against ~17,000
-decisions recorded from Python. After editing `grading.py`, regenerate them:
+**Same scoring and matching as Home Assistant; different songs.**
+`PopQuizCore` began as a line-for-line port of `game.py`, `grading.py` and
+`const.py`. Scoring, the round structure, answer matching and the holiday
+window still match, so **change those in both**. The song lists and the clip
+rules above are the app's own: Home Assistant still plays `categories/` from
+local Spotify clips. Python's `difflib` scoring is ported exactly, and
+`GradingParityTests` checks the Swift grader against ~42,000 decisions
+recorded from Python, covering both sets of lists. After editing `grading.py`, regenerate them:
 `python3 ios/scripts/make_grading_fixtures.py`.
 
 **The mic goes silent under screen mirroring.** With Xcode's Device Hub

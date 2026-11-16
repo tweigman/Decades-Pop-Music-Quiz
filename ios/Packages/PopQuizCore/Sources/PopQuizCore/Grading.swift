@@ -127,8 +127,10 @@ public enum Grading {
         return (gotTitle, gotArtist)
     }
 
+    /// As above, and either side of a double A-side earns the song point.
     public static func grade(_ said: String, song: Song) -> (title: Bool, artist: Bool) {
-        grade(said, title: song.title, artists: song.artists)
+        let graded = song.answerTitles.map { grade(said, title: $0, artists: song.artists) }
+        return (graded.contains { $0.title }, graded[0].artist)
     }
 
     private static func isOneOf(_ said: String, _ phrases: [String], threshold: Double = 85) -> Bool {

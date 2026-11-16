@@ -16,9 +16,6 @@ settings:
     CODE_SIGN_STYLE: Automatic
     SWIFT_VERSION: "6.0"
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
-    # YES copies the ~500 MB of preview MP3s into the app. NO ships without
-    # them and every clip streams from its public preview URL.
-    BUNDLE_CLIPS: "YES"
 
 targets:
   PopQuiz:
@@ -46,8 +43,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tweigman.popquiz
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "1.1"
-        CURRENT_PROJECT_VERSION: "2"
+        MARKETING_VERSION: "2.0"
+        CURRENT_PROJECT_VERSION: "3"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_USER_SCRIPT_SANDBOXING: NO
     postBuildScripts:

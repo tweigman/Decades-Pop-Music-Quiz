@@ -6,9 +6,14 @@
 import Foundation
 
 public struct Clip: Equatable, Sendable {
+    /// What the clip was chosen for: the singing, a stretch without any, the
+    /// quietest stretch of a song with little singing, or anywhere at all.
+    public enum Kind: Sendable { case lyrics, instrumental, quiet, anywhere }
+
     public let song: Song
     public let offset: Double  // seconds into the preview
     public let duration: Double
+    public let kind: Kind
 }
 
 public struct Reply: Equatable, Sendable {
@@ -44,6 +49,8 @@ public final class Game<RNG: RandomNumberGenerator> {
     public private(set) var clip: Clip?
     /// The categories on offer, which excludes holiday out of season.
     public let categories: [String]
+    /// Every song played so far, in order, for the credits.
+    public private(set) var played: [Song] = []
 
     private let library: Library
     private let announceScoresBeforeBonus: Bool
@@ -52,12 +59,34 @@ public final class Game<RNG: RandomNumberGenerator> {
     private var prompt = ""  // the last question asked, for "repeat"
     private var used = Set<String>()
 
-    /// When a difficulty runs out of songs, borrow from the nearest one.
-    private static func fallback(_ level: Difficulty) -> [Difficulty] {
+    /// One way of filling a round: which songs qualify, and the clip to cut.
+    private enum Recipe {
+        case lyrics(Difficulty)  // a song of that fame, where the singing is
+        case instrumental(Difficulty)  // a song of that fame, where it isn't
+        case obscure  // a lesser hit, or any song with little singing
+        case anything
+
+        func allows(_ song: Song) -> Bool {
+            switch self {
+            case .lyrics(let fame): song.difficulty == fame && song.canLyric
+            case .instrumental(let fame): song.difficulty == fame && song.canInstrumental
+            case .obscure: song.difficulty == .difficult || song.isSparse
+            case .anything: true
+            }
+        }
+    }
+
+    /// The recipes for a round, best first. When one runs out of unplayed
+    /// songs, the next is the nearest thing to it.
+    private func recipes(for level: Difficulty) -> [Recipe] {
         switch level {
-        case .easy: [.easy, .harder, .difficult]
-        case .harder: [.harder, .easy, .difficult]
-        case .difficult: [.difficult, .harder, .easy]
+        case .easy:
+            return [.lyrics(.easy), .lyrics(.harder), .anything]
+        case .harder:
+            let pair: [Recipe] = [.lyrics(.harder), .instrumental(.easy)]
+            return (Bool.random(using: &rng) ? pair : pair.reversed()) + [.lyrics(.easy), .anything]
+        case .difficult:
+            return [.obscure, .lyrics(.harder), .anything]
         }
     }
 
@@ -100,6 +129,7 @@ public final class Game<RNG: RandomNumberGenerator> {
     /// when its audio can't be loaded. The unplayable song isn't picked again.
     public func replaceClip() -> Clip? {
         guard state == .answer else { return nil }
+        if !played.isEmpty { played.removeLast() }
         clip = pickClip(Settings.rounds[round].level)
         return clip
     }
@@ -152,7 +182,7 @@ public final class Game<RNG: RandomNumberGenerator> {
         guard let clip else { return Reply(speech: "The game is over.", done: true) }
         if Grading.isRepeat(said) { return Reply(speech: "Here it is again.", clip: clip) }
         let song = clip.song
-        let reveal = "That was \(song.title), by \(song.artistDisplay)."
+        let reveal = "That was \(song.spokenTitle), by \(song.artistDisplay)."
         if Grading.isSkip(said) {
             let result = Reply.Result(
                 song: song, player: turn, gotTitle: false, gotArtist: false, points: 0, skipped: true)
@@ -215,21 +245,40 @@ public final class Game<RNG: RandomNumberGenerator> {
     }
 
     private func pickClip(_ level: Difficulty) -> Clip {
+        let songs = library.categories[category] ?? []
+        let fresh = songs.filter { !used.contains($0.id) }
+        var recipe = Recipe.anything
         var pool: [Song] = []
-        for lvl in Self.fallback(level) {
-            pool = library.songs(category, lvl).filter { !used.contains($0.file) }
-            if !pool.isEmpty { break }
+        for candidate in recipes(for: level) {
+            pool = fresh.filter(candidate.allows)
+            if !pool.isEmpty {
+                recipe = candidate
+                break
+            }
         }
         if pool.isEmpty {
             // Every song in the category has been played; allow repeats.
             used.removeAll()
-            pool = library.categories[category] ?? []
+            pool = songs
         }
         let song = pool.randomElement(using: &rng)!
-        used.insert(song.file)
+        used.insert(song.id)
+        played.append(song)
+
         let duration = min(Settings.clipSeconds, song.length)
-        let offset = Double.random(in: 0...(song.length - duration), using: &rng)
-        return Clip(song: song, offset: (offset * 100).rounded() / 100, duration: duration)
+        let kind: Clip.Kind
+        let offset: Double
+        switch recipe {
+        case .lyrics:
+            (kind, offset) = (.lyrics, song.lyricOffsets.randomElement(using: &rng)!)
+        case .instrumental:
+            (kind, offset) = (.instrumental, song.instrumentalOffsets.randomElement(using: &rng)!)
+        case .obscure where song.isSparse:
+            (kind, offset) = (.quiet, song.quietOffsets.randomElement(using: &rng) ?? 0)
+        case .obscure, .anything:
+            (kind, offset) = (.anywhere, Double.random(in: 0...(song.length - duration), using: &rng))
+        }
+        return Clip(song: song, offset: (offset * 100).rounded() / 100, duration: duration, kind: kind)
     }
 
     // MARK: ending

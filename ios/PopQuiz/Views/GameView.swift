@@ -14,25 +14,31 @@ struct GameView: View {
             VStack(spacing: 18) {
                 header
                 if !quiz.scores.isEmpty { Scoreboard() }
-                Spacer(minLength: 0)
-                StatusOrb(phase: quiz.phase)
-                Text(quiz.caption)
-                    .font(.title3.weight(.medium))
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-                    .frame(minHeight: 90, alignment: .top)
-                    .animation(.easeInOut, value: quiz.caption)
-                if !quiz.heard.isEmpty {
-                    Text("“\(quiz.heard)”")
-                        .font(.headline)
-                        .foregroundStyle(Color.cyanGlow)
+                if quiz.phase == .over {
+                    CreditsList(songs: quiz.credits)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                } else {
+                    Spacer(minLength: 0)
+                    StatusOrb(phase: quiz.phase)
+                    Text(quiz.caption)
+                        .font(.title3.weight(.medium))
+                        .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
+                        .frame(minHeight: 90, alignment: .top)
+                        .animation(.easeInOut, value: quiz.caption)
+                    if !quiz.heard.isEmpty {
+                        Text("“\(quiz.heard)”")
+                            .font(.headline)
+                            .foregroundStyle(Color.cyanGlow)
+                            .multilineTextAlignment(.center)
+                    }
+                    if let result = quiz.lastResult { ResultCard(result: result) }
+                    Spacer(minLength: 0)
                 }
-                if let result = quiz.lastResult { ResultCard(result: result) }
-                Spacer(minLength: 0)
                 controls
             }
             .padding(20)
+            .animation(.easeInOut(duration: 0.5), value: quiz.phase == .over)
         }
         .confirmationDialog("End this game?", isPresented: $confirmQuit, titleVisibility: .visible) {
             Button("End game", role: .destructive) { quiz.quit() }
@@ -196,6 +202,14 @@ private struct ResultCard: View {
                     .font(.subheadline.bold())
                     .foregroundStyle(result.points > 0 ? Color.gold : .white.opacity(0.6))
             }
+            if let link = result.song.storeURL {
+                Link(destination: link) {
+                    Label("Listen on Apple Music", systemImage: "arrow.up.right")
+                        .font(.footnote.weight(.semibold))
+                }
+                .tint(.neon)
+                .padding(.top, 2)
+            }
         }
         .padding(14)
         .frame(maxWidth: .infinity)
@@ -206,6 +220,77 @@ private struct ResultCard: View {
         Label(label, systemImage: got ? "checkmark.circle.fill" : "xmark.circle")
             .font(.subheadline)
             .foregroundStyle(got ? .green : .white.opacity(0.5))
+    }
+}
+
+/// The closing credits: every song the game played, each a link to the full
+/// track on Apple Music.
+private struct CreditsList: View {
+    let songs: [Song]
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Text("Tonight's Set List")
+                .font(.title2.weight(.black))
+                .fontDesign(.rounded)
+                .foregroundStyle(Color.gold)
+            Text(songs.isEmpty
+                ? "No songs this time. Play a round and they'll be credited here."
+                : "You've heard a few seconds of each. The whole song is a tap away on Apple Music.")
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.75))
+                .multilineTextAlignment(.center)
+            ScrollView {
+                VStack(spacing: 8) {
+                    ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                        CreditRow(number: index + 1, song: song)
+                    }
+                    Text("Song previews provided courtesy of Apple Music.")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.45))
+                        .padding(.top, 6)
+                }
+            }
+            .scrollIndicators(.hidden)
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+}
+
+private struct CreditRow: View {
+    let number: Int
+    let song: Song
+
+    var body: some View {
+        if let link = song.storeURL {
+            Link(destination: link) { label(linked: true) }
+                .accessibilityHint("Opens the song on Apple Music")
+        } else {
+            label(linked: false)
+        }
+    }
+
+    private func label(linked: Bool) -> some View {
+        HStack(spacing: 12) {
+            Text("\(number)")
+                .font(.footnote.monospacedDigit().bold())
+                .foregroundStyle(Color.gold)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(song.title).font(.headline).foregroundStyle(.white)
+                Text(song.artistDisplay).font(.subheadline).foregroundStyle(.white.opacity(0.7))
+            }
+            .multilineTextAlignment(.leading)
+            Spacer(minLength: 8)
+            if linked {
+                Image(systemName: "arrow.up.right.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(Color.neon)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 14).fill(.white.opacity(0.08)))
     }
 }
 

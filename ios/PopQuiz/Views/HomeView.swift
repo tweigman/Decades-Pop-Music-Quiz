@@ -43,10 +43,12 @@ struct HomeView: View {
                 }
                 VStack(spacing: 6) {
                     Label(quiz.vocabularyStatus, systemImage: "waveform")
-                    Label(quiz.clipSource.label, systemImage: quiz.clipSource == .bundled ? "iphone" : "antenna.radiowaves.left.and.right")
+                        .foregroundStyle(.white.opacity(0.55))
+                    Text("Song previews from Apple Music · Built with Claude Code")
+                        .foregroundStyle(.white.opacity(0.4))
                 }
                 .font(.footnote)
-                .foregroundStyle(.white.opacity(0.55))
+                .multilineTextAlignment(.center)
             }
             .padding(24)
         }

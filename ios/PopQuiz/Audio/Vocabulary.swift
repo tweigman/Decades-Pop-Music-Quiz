@@ -48,15 +48,17 @@ enum Vocabulary {
             let phrase = phrase.trimmingCharacters(in: .whitespaces)
             if !phrase.isEmpty { counts[phrase, default: 0] += count }
         }
+        // Thousands of songs, so each contributes only what a player is
+        // likely to say: its title, each credited name, and "title by lead".
         for song in library.allSongs {
-            let bare = song.title.replacingOccurrences(of: #"\s*\([^)]*\)\s*"#, with: " ", options: .regularExpression)
-            add(song.title, 10)
-            if bare != song.title { add(bare, 10) }
-            for artist in song.artists {
-                add(artist, 10)
-                add("\(bare) by \(artist)", 5)
-                add("\(artist) \(bare)", 2)
+            let titles = song.answerTitles.count > 1 ? Array(song.answerTitles.dropFirst()) : song.answerTitles
+            for title in titles {
+                let bare = title.replacingOccurrences(of: #"\s*\([^)]*\)\s*"#, with: " ", options: .regularExpression)
+                add(bare, 10)
+                if bare != title { add(title, 5) }
+                if let lead = song.artists.first { add("\(bare) by \(lead)", 4) }
             }
+            for artist in song.artists { add(artist, 10) }
         }
         for phrase in Grading.commandPhrases { add(phrase, 50) }
         let numbers = ["one", "two", "three", "four", "five", "six"]

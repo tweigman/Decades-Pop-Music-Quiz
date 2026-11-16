@@ -29,11 +29,10 @@ final class Quiz {
     private(set) var category = ""
     /// The categories this game offers: the decades, plus holiday in season.
     private(set) var availableCategories: [String] = []
+    /// Every song played in the game just finished, for the credits.
+    private(set) var credits: [Song] = []
 
     // Settings, remembered between launches.
-    private var clipSourceSetting = UserDefaults.standard.string(forKey: "clipSource") ?? "" {
-        didSet { UserDefaults.standard.set(clipSourceSetting, forKey: "clipSource") }
-    }
     var voiceIdentifier = UserDefaults.standard.string(forKey: "voice") ?? "" {
         didSet { UserDefaults.standard.set(voiceIdentifier, forKey: "voice") }
     }
@@ -43,14 +42,6 @@ final class Quiz {
     /// Offer the seasonal categories whatever the date.
     var extendedPlaylists = UserDefaults.standard.bool(forKey: "extendedPlaylists") {
         didSet { UserDefaults.standard.set(extendedPlaylists, forKey: "extendedPlaylists") }
-    }
-
-    var clipSource: ClipSource {
-        get {
-            let chosen = ClipSource(rawValue: clipSourceSetting)
-            return GameData.hasBundledClips ? (chosen ?? .bundled) : .stream
-        }
-        set { clipSourceSetting = newValue.rawValue }
     }
 
     private var game: Game<SystemRandomNumberGenerator>?
@@ -72,8 +63,8 @@ final class Quiz {
         Diagnostics.reset()
         let library: Library
         do {
-            let dir = GameData.dir
-            library = try await Task.detached { try Library(dataDir: dir) }.value
+            let dir = GameData.categoriesDir
+            library = try await Task.detached { try Library(categoriesDir: dir) }.value
         } catch {
             vocabularyStatus = "Couldn't load the songs: \(error.localizedDescription)"
             return
@@ -87,9 +78,10 @@ final class Quiz {
             return
         }
         do {
+            let started = ContinuousClock.now
             listener.languageModel = try await Vocabulary.prepare(library)
             vocabularyStatus = "\(library.allSongs.count) songs · song names learned"
-            Diagnostics.log("custom vocabulary ready")
+            Diagnostics.log("custom vocabulary ready after \(ContinuousClock.now - started)")
         } catch {
             // The simulator has no on-device speech models; the game still
             // works with standard recognition.
@@ -132,6 +124,7 @@ final class Quiz {
             "game start: extended \(extendedPlaylists), in season \(Settings.inHolidaySeason()), "
                 + "categories \(game.categories.joined(separator: ","))")
         lastResult = nil
+        credits = []
         silentTurns = 0
         run(game.start())
     }
@@ -191,7 +184,7 @@ final class Quiz {
             sync(game, reply)
             // Fetch the clip while the question is being read out.
             let clipFile = reply.clip.map { clip in
-                Task { try await clips.file(for: clip.song, source: clipSource) }
+                Task { try await clips.file(for: clip.song) }
             }
 
             phase = .speaking
@@ -205,7 +198,7 @@ final class Quiz {
             }
             if Task.isCancelled { return }
             if reply.done {
-                finish()
+                finish(game)
                 return
             }
 
@@ -247,7 +240,8 @@ final class Quiz {
             } catch {
                 if Task.isCancelled { return false }
                 guard let next = game.replaceClip() else { return false }
-                file = Task { try await clips.file(for: next.song, source: clipSource) }
+                Diagnostics.log("couldn't load \(clip.song.title): \(error.localizedDescription)")
+                file = Task { try await clips.file(for: next.song) }
             }
         }
         phase = .paused
@@ -264,7 +258,8 @@ final class Quiz {
         if let result = reply.result { lastResult = result }
     }
 
-    private func finish() {
+    private func finish(_ game: Game<SystemRandomNumberGenerator>) {
+        credits = game.played
         phase = .over
         listener.stop()
         UIApplication.shared.isIdleTimerDisabled = false

@@ -16,13 +16,12 @@ struct SplitMix64: RandomNumberGenerator {
     }
 }
 
+/// A test song. With no `vocals` it counts as sung from start to finish.
 func song(
     _ title: String, _ artists: String..., peak: Int? = 1, length: Double = 30,
-    level: Difficulty? = nil
+    level: Difficulty? = nil, vocals: [ClosedRange<Double>]? = nil
 ) -> Song {
-    Song(
-        title: title, artists: artists, peak: peak, file: "\(title).mp3", previewURL: nil,
-        length: length, levelOverride: level)
+    Song(title: title, artists: artists, peak: peak, length: length, levelOverride: level, vocals: vocals)
 }
 
 @Suite struct DifficultyTests {
@@ -250,34 +249,264 @@ func song(
 }
 
 @Suite struct RealLibraryTests {
-    static let repo = URL(filePath: #filePath).deletingLastPathComponent().appending(path: "../../../../..").standardized
+    static let categories = URL(filePath: #filePath).deletingLastPathComponent()
+        .appending(path: "../../../../../altcategories").standardized
+    static let present = FileManager.default.fileExists(atPath: categories.appending(path: "eighties.csv").path)
 
-    @Test(.enabled(if: FileManager.default.fileExists(atPath: repo.appending(path: "previews/index.csv").path)))
+    @Test(.enabled(if: present))
     func loadsEveryCategory() throws {
-        let lib = try Library(dataDir: Self.repo)
-        let stems = try FileManager.default.contentsOfDirectory(atPath: Self.repo.appending(path: "categories").path)
-            .filter { $0.hasSuffix(".csv") }.map { String($0.dropLast(4)) }
-        #expect(Set(lib.order) == Set(stems))
-        // Known categories come first, in the order Settings lists them.
-        #expect(Array(lib.order.prefix(Settings.categoryAliases.count)) == Settings.categoryAliases.map(\.category))
-        #expect(lib.allSongs.count > 1500)
-        for name in lib.order {
-            #expect(lib.songs(name, .easy).count >= 18, "\(name)")
-        }
-        #expect(lib.allSongs.allSatisfy { $0.previewURL != nil })
-        #expect(lib.warnings.isEmpty, "\(lib.warnings.prefix(3))")
+        let lib = try Library(categoriesDir: Self.categories)
+        // Known categories, in the order Settings lists them; working files
+        // such as _lyrics.csv are not categories.
+        #expect(lib.order == Settings.categoryAliases.map(\.category))
+        // Only rows Apple matched with confidence, minus repeats of a track.
+        #expect(lib.allSongs.count == 7862)
+        #expect(lib.categories["eighties"]?.count == 1368)
+        #expect(lib.categories["fifties"]?.count == 191)
+        #expect(lib.allSongs.allSatisfy { $0.previewURL != nil && $0.storeURL != nil && !$0.artists.isEmpty })
+        #expect(lib.allSongs.allSatisfy { $0.storeURL!.host() == "music.apple.com" })
+        // The only complaints are holiday's four repeated tracks.
+        #expect(lib.warnings.count == 4, "\(lib.warnings)")
+        #expect(lib.warnings.allSatisfy { $0.hasPrefix("holiday.csv") && $0.contains("repeats") })
     }
 
-    /// The Difficulty column decides holiday's levels, and must land on the
-    /// same split as the Python loader: 55 easy, 68 harder, 67 difficult.
-    @Test(.enabled(if: FileManager.default.fileExists(atPath: repo.appending(path: "categories/holiday.csv").path)))
+    /// Every category can supply each kind of round without falling back.
+    @Test(.enabled(if: present))
+    func everyCategoryCanFillEveryRound() throws {
+        let lib = try Library(categoriesDir: Self.categories)
+        for (name, songs) in lib.categories {
+            let easy = songs.filter { $0.difficulty == .easy && $0.canLyric }
+            let lesser = songs.filter { $0.difficulty == .harder && $0.canLyric }
+            let obscure = songs.filter { $0.difficulty == .difficult || $0.isSparse }
+            // Three easy rounds for six players is 18 songs.
+            #expect(easy.count >= 18, "\(name) easy \(easy.count)")
+            #expect(lesser.count >= 6, "\(name) lesser \(lesser.count)")
+            #expect(obscure.count >= 6, "\(name) obscure \(obscure.count)")
+            #expect(songs.contains { $0.difficulty == .easy && $0.canInstrumental }, "\(name)")
+        }
+    }
+
+    /// Holiday keeps its hand-set Difficulty column; blanks fall to the peak.
+    @Test(.enabled(if: present))
     func holidayUsesTheDifficultyColumn() throws {
-        let lib = try Library(dataDir: Self.repo)
+        let lib = try Library(categoriesDir: Self.categories)
         let holiday = try #require(lib.categories["holiday"])
-        #expect(holiday.count == 190)
-        #expect(holiday.filter { $0.levelOverride != nil }.count == 145)
-        #expect(holiday.filter { $0.difficulty == .easy }.count == 55)
-        #expect(holiday.filter { $0.difficulty == .harder }.count == 68)
-        #expect(holiday.filter { $0.difficulty == .difficult }.count == 67)
+        #expect(holiday.count == 199)
+        #expect(holiday.filter { $0.levelOverride != nil }.count == 134)
+        #expect(holiday.filter { $0.difficulty == .easy }.count == 54)
+        #expect(holiday.filter { $0.difficulty == .harder }.count == 62)
+        #expect(holiday.filter { $0.difficulty == .difficult }.count == 83)
+    }
+
+    /// A row read end to end: timings, links and the tidied credit.
+    @Test(.enabled(if: present))
+    func readsTimingsAndCredits() throws {
+        let lib = try Library(categoriesDir: Self.categories)
+        let eighties = try #require(lib.categories["eighties"])
+        let radio = try #require(eighties.first { $0.title == "On The Radio" })
+        #expect(radio.id == "1599084331")
+        #expect(radio.vocals == [0.0...6.2, 9.4...13.1, 16.7...21.6, 24.2...28.1])
+        #expect(radio.vocalShare == 0.62)
+        #expect(radio.lyricsStart == 0)
+        #expect(radio.storeURL?.absoluteString.contains("music.apple.com/us/album/on-the-radio") == true)
+
+        let islands = try #require(eighties.first { $0.title == "Islands In The Stream" })
+        #expect(islands.credit == "Kenny Rogers and Dolly Parton")
+        #expect(islands.artists.contains("Kenny Rogers") && islands.artists.contains("Dolly Parton"))
+        #expect(Grading.grade("islands in the stream by dolly parton", song: islands) == (true, true))
+    }
+}
+
+@Suite struct ArtistCreditTests {
+    func names(_ credit: String) -> [String] { ArtistCredit.parse(credit).names }
+    func display(_ credit: String) -> String { ArtistCredit.parse(credit).display }
+
+    @Test func plainNamesPassThrough() {
+        #expect(names("Donna Summer") == ["Donna Summer"])
+        #expect(display("Donna Summer") == "Donna Summer")
+        #expect(names("") == [])
+    }
+
+    @Test func guestsAreSplitOut() {
+        #expect(names("Quincy Jones Featuring James Ingram") == ["Quincy Jones", "James Ingram"])
+        #expect(names("Kenny Rogers Duet With Dolly Parton") == ["Kenny Rogers", "Dolly Parton"])
+        #expect(names("Patti Austin A Duet With James Ingram") == ["Patti Austin", "James Ingram"])
+        #expect(names("Dan Hill (Duet With Vonda Shepard)") == ["Dan Hill", "Vonda Shepard"])
+        #expect(names("Bryan Adams/Rod Stewart/Sting") == ["Bryan Adams", "Rod Stewart", "Sting"])
+        #expect(names("Gucci Mane X Bruno Mars X Kodak Black") == ["Gucci Mane", "Bruno Mars", "Kodak Black"])
+        #expect(names("Kygo x Selena Gomez") == ["Kygo", "Selena Gomez"])
+        #expect(names("Gwen Stefani; Blake Shelton") == ["Gwen Stefani", "Blake Shelton"])
+    }
+
+    @Test func anXInANameIsNotASeparator() {
+        #expect(names("Lil Nas X Featuring Billy Ray Cyrus") == ["Lil Nas X", "Billy Ray Cyrus"])
+        #expect(names("Lil Nas X & Jack Harlow") == ["Lil Nas X & Jack Harlow", "Lil Nas X", "Jack Harlow"])
+        #expect(names("AC/DC") == ["AC/DC"])
+    }
+
+    @Test func actsWithAmpersandsStayWhole() {
+        for act in ["Earth, Wind & Fire", "Simon & Garfunkel", "Crosby, Stills & Nash", "Hall & Oates",
+            "Grover Washington, Jr.", "Lipps, Inc.", "Was (Not Was)"] {
+            #expect(names(act) == [act], "\(act)")
+        }
+    }
+
+    @Test func twoFullNamesAreTwoPeople() {
+        #expect(names("Andy Gibb & Olivia Newton-John")
+            == ["Andy Gibb & Olivia Newton-John", "Andy Gibb", "Olivia Newton-John"])
+        #expect(names("Paul McCartney And Michael Jackson").contains("Michael Jackson"))
+    }
+
+    @Test func aLeaderAndTheirBand() {
+        #expect(names("Prince And The Revolution") == ["Prince And The Revolution", "Prince", "The Revolution"])
+        #expect(names("Tom Petty And The Heartbreakers").contains("Tom Petty"))
+        #expect(names("Bill Haley And His Comets") == ["Bill Haley And His Comets", "Bill Haley"])
+        #expect(names("Stevie Nicks With Tom Petty And The Heartbreakers")
+            == ["Stevie Nicks", "Tom Petty And The Heartbreakers", "Tom Petty", "The Heartbreakers"])
+    }
+
+    @Test func displayReadsNaturally() {
+        #expect(display("Kenny Rogers Duet With Dolly Parton") == "Kenny Rogers and Dolly Parton")
+        #expect(display("Quincy Jones Featuring James Ingram") == "Quincy Jones featuring James Ingram")
+        #expect(display("Kenny G. (Vocal By Lenny Williams)") == "Kenny G. featuring Lenny Williams")
+        #expect(display("Earth, Wind & Fire") == "Earth, Wind and Fire")
+        #expect(display("Selena Gomez X Marshmello") == "Selena Gomez and Marshmello")
+    }
+
+    @Test func anyCreditedNameEarnsThePoint() {
+        let s = Song(
+            title: "Purple Rain", credit: "Prince and The Revolution",
+            artists: ArtistCredit.parse("Prince And The Revolution").names, peak: 2, length: 30)
+        #expect(Grading.grade("prince", song: s) == (false, true))
+        #expect(Grading.grade("purple rain by the revolution", song: s) == (true, true))
+        #expect(Grading.grade("purple rain by queen", song: s) == (true, false))
+    }
+}
+
+@Suite struct ClipTests {
+    /// Sung for the first 12 seconds, silent after: both kinds of clip exist.
+    let half = song("Half", "A", vocals: [0...12])
+    let instrumental = song("Tune", "A", vocals: [])
+    let bursts = song("Bursts", "A", vocals: [2...3.5, 10...11.5, 20...22])
+
+    @Test func lyricClipsSitOnTheSinging() {
+        #expect(half.canLyric)
+        // 6 of the 8 seconds must be sung, so the clip starts by 6s.
+        #expect(half.lyricOffsets.min() == 0 && half.lyricOffsets.max() == 6)
+    }
+
+    @Test func instrumentalClipsAvoidTheSinging() {
+        #expect(half.canInstrumental)
+        // At most a second of singing, so no earlier than 11s.
+        #expect(half.instrumentalOffsets.min() == 11 && half.instrumentalOffsets.max() == 22)
+    }
+
+    @Test func aSongSungThroughoutHasNoInstrumentalClip() {
+        let sung = song("Sung", "A")
+        #expect(sung.canLyric && !sung.canInstrumental && !sung.isSparse)
+    }
+
+    @Test func instrumentalsAndBurstsAreSparse() {
+        #expect(instrumental.isSparse && !instrumental.canLyric && instrumental.canInstrumental)
+        #expect(instrumental.vocalShare == 0 && instrumental.lyricsStart == nil)
+        // Short bursts only: some singing, but nowhere a lyrics clip could go.
+        #expect(bursts.lyricsStart == nil && bursts.isSparse && !bursts.canLyric)
+    }
+
+    @Test func eitherSideOfADoubleASideCounts() {
+        let s = song("Human Touch/Better Days", "Bruce Springsteen")
+        #expect(Grading.grade("better days", song: s).title)
+        #expect(Grading.grade("human touch", song: s).title)
+        #expect(s.spokenTitle == "Human Touch and Better Days")
+        // A slash inside a short title isn't a double A-side.
+        #expect(song("7/11", "Beyonce").answerTitles == ["7/11"])
+    }
+}
+
+@Suite struct RoundTests {
+    /// Top hits and lesser hits, half of each with an instrumental stretch,
+    /// plus obscure songs and a top-five instrumental.
+    static func library() -> Library {
+        var songs: [Song] = []
+        for i in 0..<30 {
+            let vocals: [ClosedRange<Double>]? = i % 2 == 0 ? [0...12] : nil
+            songs.append(song("Top \(i)", "A", peak: 1 + i % 5, vocals: vocals))
+            songs.append(song("Mid \(i)", "A", peak: 6 + i % 10, vocals: vocals))
+            songs.append(song("Low \(i)", "A", peak: 16 + i % 5, vocals: vocals))
+        }
+        songs.append(song("Theme", "A", peak: 1, vocals: []))
+        return Library(categories: ["eighties": songs])
+    }
+
+    /// Plays whole one-player games and returns every clip with its round.
+    func clips(games: Int) -> [(round: Int, clip: Clip)] {
+        var out: [(Int, Clip)] = []
+        for seed in 0..<UInt64(games) {
+            let game = Game(library: Self.library(), rng: SplitMix64(state: seed), showHoliday: false)
+            _ = game.start()
+            _ = game.handle("one")
+            var reply = game.handle("eighties")
+            while let clip = reply.clip {
+                out.append((game.round, clip))
+                reply = game.handle("skip")
+            }
+            #expect(game.played.count == Settings.rounds.count)
+        }
+        return out
+    }
+
+    func sung(_ clip: Clip) -> Double {
+        clip.song.vocals.reduce(0) {
+            $0 + max(0, min($1.upperBound, clip.offset + clip.duration) - max($1.lowerBound, clip.offset))
+        }
+    }
+
+    @Test func easyRoundsAreTopHitsWithLyrics() {
+        for (round, clip) in clips(games: 40) where round < 3 {
+            #expect(clip.song.difficulty == .easy, "\(clip.song.title)")
+            #expect(clip.kind == .lyrics)
+            #expect(sung(clip) >= Settings.lyricSeconds)
+        }
+    }
+
+    @Test func mediumRoundIsALesserHitOrATopHitWithoutVocals() {
+        var lesser = 0, instrumental = 0
+        for (round, clip) in clips(games: 60) where round == 3 {
+            switch clip.kind {
+            case .lyrics:
+                #expect(clip.song.difficulty == .harder)
+                #expect(sung(clip) >= Settings.lyricSeconds)
+                lesser += 1
+            case .instrumental:
+                #expect(clip.song.difficulty == .easy)
+                #expect(sung(clip) <= Settings.instrumentalSeconds)
+                instrumental += 1
+            default:
+                Issue.record("unexpected \(clip.kind) clip in the medium round")
+            }
+        }
+        // A coin flip: both turn up, neither dominates.
+        #expect(lesser >= 15 && instrumental >= 15, "\(lesser) lesser, \(instrumental) instrumental")
+    }
+
+    @Test func hardRoundIsObscureOrSparse() {
+        var kinds = Set<Clip.Kind>()
+        for (round, clip) in clips(games: 80) where round == 4 {
+            #expect(clip.song.difficulty == .difficult || clip.song.isSparse, "\(clip.song.title)")
+            // A sparse song plays its quietest stretch; a lesser hit, anywhere.
+            #expect(clip.kind == (clip.song.isSparse ? .quiet : .anywhere))
+            kinds.insert(clip.kind)
+        }
+        #expect(kinds == [.quiet, .anywhere])
+    }
+
+    @Test func aFailedClipIsNotCredited() {
+        let game = Game(library: Self.library(), rng: SplitMix64(state: 7), showHoliday: false)
+        _ = game.start()
+        _ = game.handle("one")
+        let first = game.handle("eighties").clip!
+        let second = game.replaceClip()!
+        #expect(game.played == [second.song])
+        #expect(second.song != first.song && second.kind == .lyrics)
     }
 }

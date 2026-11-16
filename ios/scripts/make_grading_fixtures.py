@@ -24,12 +24,29 @@ OUT = REPO / "ios/Packages/PopQuizCore/Tests/PopQuizCoreTests/Fixtures/grading.j
 
 
 def load_songs() -> list[Song]:
+    """Names to grade: the Spotify lists, and a sample of the chart lists.
+
+    The app plays the chart lists (altcategories/), whose titles and credits
+    are Billboard's wording, so the grader is checked against those too. One
+    row in four keeps the fixture a reasonable size.
+    """
     songs = []
     for path in sorted((REPO / "categories").glob("*.csv")):
-        with path.open(newline="", encoding="utf-8") as f:
-            for row in csv.DictReader(f):
-                artists = tuple(a.strip() for a in row["Artist(s)"].split(";") if a.strip())
-                title = row["Clean Title"].strip() or row["Title"].strip()
+        songs += read(path, every=1)
+    for path in sorted((REPO / "altcategories").glob("[a-z]*.csv")):
+        songs += read(path, every=4)
+    return songs
+
+
+def read(path: Path, every: int) -> list[Song]:
+    songs = []
+    with path.open(newline="", encoding="utf-8") as f:
+        for n, row in enumerate(csv.DictReader(f)):
+            if n % every:
+                continue
+            artists = tuple(a.strip() for a in row["Artist(s)"].split(";") if a.strip())
+            title = row["Clean Title"].strip() or row["Title"].strip()
+            if title and artists:
                 songs.append(Song(title, artists, None, Path("x"), 30.0))
     return songs
 

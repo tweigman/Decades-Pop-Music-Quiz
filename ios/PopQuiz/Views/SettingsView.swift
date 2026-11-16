@@ -11,21 +11,6 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Picker("Clips", selection: $quiz.clipSource) {
-                        ForEach(ClipSource.allCases) { Text($0.label).tag($0) }
-                    }
-                    .pickerStyle(.inline)
-                    .labelsHidden()
-                    .disabled(!GameData.hasBundledClips)
-                } header: {
-                    Text("Song clips")
-                } footer: {
-                    Text(GameData.hasBundledClips
-                        ? "Clips are built into this copy of the app. Streaming fetches each one from its public preview URL instead."
-                        : "This build doesn't include the clips, so each one streams from its public preview URL.")
-                }
-
-                Section {
                     Picker("Voice", selection: $quiz.voiceIdentifier) {
                         Text("Best available").tag("")
                         ForEach(Speaker.englishVoices(), id: \.identifier) { voice in
@@ -58,6 +43,15 @@ struct SettingsView: View {
                     Text(quiz.holidayAvailable && !quiz.extendedPlaylists
                         ? "Holiday is in season, so it's on the category list until January 6th. Turn this on to keep it there year-round."
                         : "Holiday songs appear on the category list from November 20th to January 6th. Turn this on to play them at any time of year.")
+                }
+
+                Section {
+                    LabeledContent("Song previews", value: "Apple Music")
+                    LabeledContent("Built with", value: "Claude Code")
+                } header: {
+                    Text("About")
+                } footer: {
+                    Text("Clips are streamed from Apple Music's song previews, so Pop Quiz needs an internet connection. Every song you hear is listed, with a link, when the game ends.")
                 }
             }
             .navigationTitle("Settings")

@@ -1,5 +1,7 @@
-// Pop Quiz rules and tunable numbers. Mirrors custom_components/popquiz/const.py;
-// keep the two in step so the iPhone and Home Assistant games play the same.
+// Pop Quiz rules and tunable numbers. The scoring, rounds and match thresholds
+// mirror custom_components/popquiz/const.py. The clip rules below (lyrics,
+// instrumental, sparse) are the iPhone app's own: Home Assistant still plays
+// the Spotify lists, which have no vocal timings.
 
 import Foundation
 
@@ -12,9 +14,28 @@ public enum Settings {
     /// always leaves room for the full clip to play.
     public static let clipSeconds = 8.0
 
-    /// Difficulty comes from the song's best Billboard Hot 100 peak:
+    /// How finely clip start points are tried along a preview, in seconds.
+    public static let clipStep = 0.25
+
+    /// A "lyrics" clip holds at least this much singing (of clipSeconds).
+    /// Easy rounds always play one.
+    public static let lyricSeconds = 6.0
+    /// An "instrumental" clip holds at most this much singing.
+    public static let instrumentalSeconds = 1.0
+    /// A song sung for less than this share of its preview is hard to place,
+    /// whatever its chart position, and belongs in the difficult round.
+    public static let sparseVocalShare = 0.40
+
+    /// How well known a song is comes from its best Billboard Hot 100 peak:
     /// 1...easyMaxPeak is easy, up to harderMaxPeak is harder, above is
     /// difficult. Songs with no chart peak count as difficult.
+    ///
+    /// A round then pairs that with a kind of clip:
+    ///   easy       a top hit, played where the singing is
+    ///   harder     a coin flip: a lesser hit where the singing is, or a top
+    ///              hit from an instrumental stretch
+    ///   difficult  a lesser hit from anywhere in the preview, or any song
+    ///              with little singing, from its quietest stretch
     public static let easyMaxPeak = 5
     public static let harderMaxPeak = 15
 
@@ -46,6 +67,7 @@ public enum Settings {
     /// Extra things a player might say for a category, beyond its file name,
     /// in chronological order (which is also the menu order).
     public static let categoryAliases: [(category: String, aliases: [String])] = [
+        ("fifties", ["50s", "1950s"]),
         ("sixties", ["60s", "1960s"]),
         ("seventies", ["70s", "1970s"]),
         ("eighties", ["80s", "1980s"]),

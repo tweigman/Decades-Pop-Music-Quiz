@@ -1,12 +1,6 @@
 import AVFoundation
 import PopQuizCore
 
-enum ClipSource: String, CaseIterable, Identifiable {
-    case bundled, stream
-    var id: Self { self }
-    var label: String { self == .bundled ? "On this iPhone" : "Stream from preview URL" }
-}
-
 enum ClipError: LocalizedError {
     case noURL, http(Int)
     var errorDescription: String? {
@@ -17,27 +11,31 @@ enum ClipError: LocalizedError {
     }
 }
 
-/// Finds a song's audio (bundled or downloaded) and plays a window of it.
+/// Streams a song's preview from Apple and plays a window of it. Nothing is
+/// kept: previews sit in a temporary folder for the session, so a repeat
+/// doesn't fetch twice, and the folder is emptied at every launch.
 final class ClipPlayer {
     private var player: AVAudioPlayer?
-    private let cacheDir = URL.cachesDirectory.appending(path: "clips")
+    private let folder = FileManager.default.temporaryDirectory.appending(path: "previews")
 
-    /// A local file for the song: the bundled clip when using bundled audio and
-    /// it's present, otherwise a cached download of its preview URL.
-    func file(for song: Song, source: ClipSource) async throws -> URL {
-        if source == .bundled {
-            let bundled = GameData.previewsDir.appending(path: song.file)
-            if FileManager.default.fileExists(atPath: bundled.path) { return bundled }
-        }
-        let cached = cacheDir.appending(path: song.file)
-        if FileManager.default.fileExists(atPath: cached.path) { return cached }
+    init() {
+        try? FileManager.default.removeItem(at: folder)
+        // Earlier versions cached clips here.
+        try? FileManager.default.removeItem(at: URL.cachesDirectory.appending(path: "clips"))
+    }
+
+    /// The song's preview as a local file, fetched if it isn't here already.
+    func file(for song: Song) async throws -> URL {
         guard let remote = song.previewURL else { throw ClipError.noURL }
+        let type = remote.pathExtension.isEmpty ? "m4a" : remote.pathExtension
+        let local = folder.appending(path: "\(song.id).\(type)")
+        if FileManager.default.fileExists(atPath: local.path) { return local }
         let (download, response) = try await URLSession.shared.download(from: remote)
         if let code = (response as? HTTPURLResponse)?.statusCode, code != 200 { throw ClipError.http(code) }
-        try FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
-        try? FileManager.default.removeItem(at: cached)
-        try FileManager.default.moveItem(at: download, to: cached)
-        return cached
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try? FileManager.default.removeItem(at: local)
+        try FileManager.default.moveItem(at: download, to: local)
+        return local
     }
 
     /// Play `duration` seconds from `offset`, fading out at the end.

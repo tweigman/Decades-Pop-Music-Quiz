@@ -1,7 +1,5 @@
 #!/bin/sh
 # Build Pop Quiz and install it on the iPhone plugged into this Mac.
-#   ./install.sh              clips bundled into the app (~500 MB)
-#   BUNDLE_CLIPS=NO ./install.sh   small app; clips stream from their preview URLs
 set -eu
 cd "$(dirname "$0")"
 
@@ -13,7 +11,7 @@ LOG=build/build.log
 mkdir -p build
 if ! xcodebuild -project PopQuiz.xcodeproj -scheme PopQuiz -configuration Release \
     -destination 'generic/platform=iOS' -derivedDataPath build/DerivedData \
-    -allowProvisioningUpdates BUNDLE_CLIPS="${BUNDLE_CLIPS:-YES}" build >"$LOG" 2>&1; then
+    -allowProvisioningUpdates build >"$LOG" 2>&1; then
     grep -E "error:" "$LOG" | sort -u
     echo "Build failed; full log in ios/$LOG"
     exit 1
