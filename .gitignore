@@ -14,3 +14,6 @@ __pycache__/
 
 # Bonus-round build-up sound and any other game audio you add.
 sounds/*.mp3
+
+# Environment for detect_lyrics.py (torch + demucs, ~400 MB).
+.venv-audio/

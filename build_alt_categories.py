@@ -33,7 +33,14 @@ DECADES = {195: "fifties", 196: "sixties", 197: "seventies", 198: "eighties",
            202: "twenty_twenties"}
 FIELDS = ["#", "URL", "Title", "Clean Title", "Artist(s)", "Year",
           "Duration (ms)", "MP3 File", "Preview URL", "Peak (Hot 100)",
-          "Difficulty", "First Charted", "Peak Date", "Weeks on Chart"]
+          "Difficulty", "First Charted", "Peak Date", "Weeks on Chart",
+          "Apple Title", "Apple Artist", "Match",
+          "Preview (s)", "Lyrics Start (s)", "Vocal Segments", "Vocal %"]
+# Filled in later by fetch_apple_previews.py and detect_lyrics.py; a rebuild
+# must not wipe them.
+KEEP = ["URL", "Duration (ms)", "MP3 File", "Preview URL", "Difficulty",
+        "Apple Title", "Apple Artist", "Match",
+        "Preview (s)", "Lyrics Start (s)", "Vocal Segments", "Vocal %"]
 HOLIDAY_WORDS = re.compile(
     r"christmas|xmas|santa|rudolph|jingle|sleigh|snowman|mistletoe|noel|"
     r"winter wonderland|holly jolly|let it snow|navidad|silent night|"
@@ -135,14 +142,22 @@ def main():
 
     for key, name in DECADES.items():
         rows = sorted(by_decade[key], key=lambda s: (s["first"], s["peak"], s["title"]))
-        with open(os.path.join(OUT_DIR, name + ".csv"), "w", newline="") as f:
+        out = os.path.join(OUT_DIR, name + ".csv")
+        old = {}
+        if os.path.exists(out):
+            with open(out, newline="") as f:
+                old = {(r["Title"], r["Artist(s)"]): r for r in csv.DictReader(f)}
+        with open(out, "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=FIELDS)
             w.writeheader()
             for i, s in enumerate(rows, 1):
-                w.writerow({"#": i, "Title": s["title"], "Clean Title": s["title"],
+                prev = old.get((s["title"], s["performer"]), {})
+                row = {k: prev.get(k, "") for k in KEEP}
+                row.update({"#": i, "Title": s["title"], "Clean Title": s["title"],
                             "Artist(s)": s["performer"], "Year": s["first"][:4],
                             "Peak (Hot 100)": s["peak"], "First Charted": s["first"],
                             "Peak Date": s["peak_week"], "Weeks on Chart": len(s["weeks"])})
+                w.writerow(row)
         tiers = [sum(1 for s in rows if s["peak"] <= n) for n in (1, 5, 10, 20)]
         print(f"{name:>16}: {len(rows):>4} songs   #1s {tiers[0]:>3}   top5 {tiers[1]:>3}   top10 {tiers[2]:>4}   top20 {tiers[3]:>4}")
     print(f"\n{len(holiday)} holiday songs left out -> {OUT_DIR}/_excluded_holiday.csv")
