@@ -19,7 +19,7 @@ struct GameView: View {
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                 } else {
                     Spacer(minLength: 0)
-                    StatusOrb(phase: quiz.phase)
+                    StatusOrb(phase: quiz.phase, choosing: quiz.gameState != .answer)
                     Text(quiz.caption)
                         .font(.title3.weight(.medium))
                         .foregroundStyle(.white)
@@ -122,14 +122,20 @@ struct GameView: View {
 
     @ViewBuilder private var answerControls: some View {
         VStack(spacing: 12) {
-            if typing {
+            if typing || quiz.typedGame {
                 HStack {
                     TextField("Song or artist", text: $typed)
                         .textFieldStyle(.roundedBorder)
                         .focused($fieldFocused)
+                        // No suggestions bar: it hides the field, and song
+                        // names don't want correcting. Grading forgives typos.
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.asciiCapable)
                         .submitLabel(.send)
                         .onSubmit(sendTyped)
                     Button("Send", action: sendTyped).buttonStyle(.borderedProminent).tint(.neon)
+                        .disabled(answerNotDue)
                 }
             }
             if quiz.phase == .listening {
@@ -141,18 +147,30 @@ struct GameView: View {
             HStack(spacing: 12) {
                 Button { quiz.say("repeat") } label: { Label("Repeat", systemImage: "arrow.counterclockwise") }
                 Button { quiz.say("skip") } label: { Label("Skip", systemImage: "forward.fill") }
-                Button {
-                    typing.toggle()
-                    fieldFocused = typing
-                } label: { Label("Type", systemImage: "keyboard") }
+                if !quiz.typedGame {
+                    Button {
+                        typing.toggle()
+                        fieldFocused = typing
+                    } label: { Label("Type", systemImage: "keyboard") }
+                }
             }
             .buttonStyle(.bordered).tint(.white)
         }
+        // In a typed game the keyboard comes up when it's time to answer.
+        .onChange(of: quiz.phase, initial: true) { _, phase in
+            if quiz.typedGame && phase == .typing { fieldFocused = true }
+        }
+    }
+
+    /// In a typed game, an answer sent while the quizmaster is still talking
+    /// would be for a song nobody has heard yet.
+    private var answerNotDue: Bool {
+        quiz.typedGame && (quiz.phase == .speaking || quiz.phase == .bonus)
     }
 
     private func sendTyped() {
         let text = typed.trimmingCharacters(in: .whitespaces)
-        guard !text.isEmpty else { return }
+        guard !text.isEmpty, !answerNotDue else { return }
         typed = ""
         typing = false
         fieldFocused = false
@@ -296,6 +314,8 @@ private struct CreditRow: View {
 
 private struct StatusOrb: View {
     let phase: Quiz.Phase
+    /// Waiting on a tap (players, category) rather than a typed answer.
+    var choosing = false
     @State private var pulse = false
 
     var body: some View {
@@ -331,6 +351,7 @@ private struct StatusOrb: View {
         case .loading: "arrow.down.circle"
         case .playing: "music.note"
         case .listening: "mic.fill"
+        case .typing: choosing ? "hand.tap.fill" : "keyboard"
         case .paused: "pause.fill"
         case .over: "trophy.fill"
         case .idle: "music.mic"
@@ -344,6 +365,7 @@ private struct StatusOrb: View {
         case .loading: "Loading clip"
         case .playing: "Listen…"
         case .listening: "Your answer"
+        case .typing: choosing ? "Tap your choice" : "Type your answer"
         case .paused: "Paused"
         case .over: "Game over"
         case .idle: ""
@@ -352,7 +374,7 @@ private struct StatusOrb: View {
 
     private var color: Color {
         switch phase {
-        case .listening: .cyanGlow
+        case .listening, .typing: .cyanGlow
         case .playing, .loading: .neon
         case .bonus, .over: .gold
         default: .purple

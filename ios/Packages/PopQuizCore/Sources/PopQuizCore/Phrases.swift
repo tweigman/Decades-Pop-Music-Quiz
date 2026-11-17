@@ -6,6 +6,12 @@ public enum Phrases {
         + "Name the song, the artist, or both for double points. "
         + "Say repeat to hear it again, skip to pass, or exit game now to quit. "
 
+    /// For a game where answers are typed rather than spoken.
+    public static let welcomeTyped =
+        "Welcome to Pop Quiz! I'll play a short clip of a song. "
+        + "Type the song, the artist, or both for double points. "
+        + "Use the buttons to hear it again or to skip. "
+
     public static let askPlayers = "How many players? Anywhere from one to six."
 
     /// No end punctuation: the game adds "." or ", or choose Holiday!" in season.

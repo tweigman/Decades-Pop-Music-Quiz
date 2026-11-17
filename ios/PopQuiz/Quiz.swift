@@ -9,7 +9,7 @@ import SwiftUI
 @Observable
 final class Quiz {
     enum Phase: Equatable {
-        case idle, speaking, bonus, loading, playing, listening, paused, over
+        case idle, speaking, bonus, loading, playing, listening, typing, paused, over
     }
 
     private(set) var phase = Phase.idle
@@ -39,6 +39,13 @@ final class Quiz {
     var announceScoresBeforeBonus = UserDefaults.standard.bool(forKey: "announceScores") {
         didSet { UserDefaults.standard.set(announceScoresBeforeBonus, forKey: "announceScores") }
     }
+    /// Answers are typed, not spoken: for a noisy room. Chosen on the home
+    /// screen; a typed game never turns the microphone on.
+    var typedAnswers = UserDefaults.standard.bool(forKey: "typedAnswers") {
+        didSet { UserDefaults.standard.set(typedAnswers, forKey: "typedAnswers") }
+    }
+    /// How the game in progress takes answers, fixed when it starts.
+    private(set) var typedGame = false
     /// Offer the seasonal categories whatever the date.
     var extendedPlaylists = UserDefaults.standard.bool(forKey: "extendedPlaylists") {
         didSet { UserDefaults.standard.set(extendedPlaylists, forKey: "extendedPlaylists") }
@@ -95,17 +102,23 @@ final class Quiz {
     func start() async {
         guard let library else { return }
         errorMessage = nil
-        let allowed = Self.demo ? true : await Self.requestPermissions()
-        Diagnostics.log("permissions granted: \(allowed)")
+        let typed = typedAnswers && !Self.demo
+        let allowed = Self.demo || typed ? true : await Self.requestPermissions()
+        Diagnostics.log("permissions granted: \(allowed), typed game: \(typed)")
         guard allowed else {
             errorMessage = "Pop Quiz needs the microphone and speech recognition. Turn them on in Settings."
             return
         }
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothA2DP])
+            if typed {
+                // No microphone at all: plain playback.
+                try session.setCategory(.playback, mode: .default)
+            } else {
+                try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothA2DP])
+            }
             try session.setActive(true)
-            if !Self.demo { try listener.start() }
+            if !Self.demo && !typed { try listener.start() }
         } catch {
             Diagnostics.log("audio start failed: \(error)")
             errorMessage = "Couldn't start audio: \(error.localizedDescription)"
@@ -126,7 +139,8 @@ final class Quiz {
         lastResult = nil
         credits = []
         silentTurns = 0
-        run(game.start())
+        typedGame = typed
+        run(game.start(typed: typed))
     }
 
     /// A spoken, tapped or typed answer or command.
@@ -206,8 +220,13 @@ final class Quiz {
                 guard await playClip(clipFile, game) else { return }
             }
 
-            phase = .listening
             heard = ""
+            if typedGame {
+                // Wait for the keyboard or a button; say() carries on from here.
+                phase = .typing
+                return
+            }
+            phase = .listening
             let answer = Self.demo ? await demoAnswer(game) : await listener.listen { [weak self] in self?.heard = $0 }
             if Task.isCancelled { return }
             if answer.isEmpty {

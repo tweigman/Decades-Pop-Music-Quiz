@@ -253,6 +253,10 @@ recognition. A custom language model trained on every title and artist helps
 it hear names like "Blue Öyster Cult". Buttons (players, categories, Repeat,
 Skip, Type) work too.
 
+For a noisy room, pick **Type answers** on the home screen before starting.
+That game never turns the microphone on (and never asks for it): the keyboard
+comes up after each clip and the game waits for an answer or a button.
+
 ```bash
 cd ios && ./install.sh                  # build and install on the plugged-in iPhone
 cd ios/Packages/PopQuizCore && swift test   # game + grading tests, on the Mac

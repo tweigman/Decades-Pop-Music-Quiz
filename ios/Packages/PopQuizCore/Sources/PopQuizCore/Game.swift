@@ -107,9 +107,10 @@ public final class Game<RNG: RandomNumberGenerator> {
 
     // MARK: entry points
 
-    public func start() -> Reply {
+    /// `typed`: answers will be typed, so the welcome doesn't ask for speech.
+    public func start(typed: Bool = false) -> Reply {
         prompt = Phrases.askPlayers
-        return Reply(speech: Phrases.welcome + Phrases.askPlayers, listen: true)
+        return Reply(speech: (typed ? Phrases.welcomeTyped : Phrases.welcome) + Phrases.askPlayers, listen: true)
     }
 
     public func handle(_ said: String) -> Reply {
