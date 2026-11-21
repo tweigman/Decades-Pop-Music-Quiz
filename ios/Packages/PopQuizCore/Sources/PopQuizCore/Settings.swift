@@ -20,6 +20,10 @@ public enum Settings {
     /// A "lyrics" clip holds at least this much singing (of clipSeconds).
     /// Easy rounds always play one.
     public static let lyricSeconds = 6.0
+    /// A lyrics clip starts this much earlier than its chosen window (and
+    /// plays this much longer), so the singing never begins on the very first
+    /// beat of the clip.
+    public static let lyricLeadIn = 0.5
     /// An "instrumental" clip holds at most this much singing.
     public static let instrumentalSeconds = 1.0
     /// A song sung for less than this share of its preview is hard to place,

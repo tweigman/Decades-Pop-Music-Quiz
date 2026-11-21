@@ -266,12 +266,16 @@ public final class Game<RNG: RandomNumberGenerator> {
         used.insert(song.id)
         played.append(song)
 
-        let duration = min(Settings.clipSeconds, song.length)
+        var duration = min(Settings.clipSeconds, song.length)
         let kind: Clip.Kind
-        let offset: Double
+        var offset: Double
         switch recipe {
         case .lyrics:
             (kind, offset) = (.lyrics, song.lyricOffsets.randomElement(using: &rng)!)
+            // Lead in a little, ending at the same place.
+            let leadIn = min(Settings.lyricLeadIn, offset)
+            offset -= leadIn
+            duration += leadIn
         case .instrumental:
             (kind, offset) = (.instrumental, song.instrumentalOffsets.randomElement(using: &rng)!)
         case .obscure where song.isSparse:
