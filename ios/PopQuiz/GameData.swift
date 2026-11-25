@@ -5,8 +5,13 @@ enum GameData {
     static let dir = Bundle.main.bundleURL.appending(path: "GameData")
     static let categoriesDir = dir.appending(path: "categories")
 
-    static var bonusIntro: URL? {
-        let url = dir.appending(path: "sounds/bonus_intro.mp3")
-        return FileManager.default.fileExists(atPath: url.path) ? url : nil
-    }
+    /// The bonus-round intro. It's a licensed sound, so it's stored scrambled
+    /// (see scripts/bundle_game_data.sh) rather than as a playable file
+    /// anyone could copy out of the app.
+    static let bonusIntro: Data? = {
+        guard let data = try? Data(contentsOf: dir.appending(path: "sounds/bonus.bin")) else { return nil }
+        return Data(data.map { $0 ^ scrambleKey })
+    }()
+
+    static let scrambleKey: UInt8 = 0xA7
 }

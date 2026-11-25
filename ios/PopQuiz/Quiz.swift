@@ -60,6 +60,9 @@ final class Quiz {
 
     var isPlaying: Bool { game != nil && phase != .over }
 
+    /// Whether this iPhone can take spoken answers (on-device recognition).
+    var canListen: Bool { listener.canListen }
+
     /// Whether the holiday category is on offer, and why.
     var holidayAvailable: Bool { extendedPlaylists || Settings.inHolidaySeason() }
 
@@ -102,7 +105,7 @@ final class Quiz {
     func start() async {
         guard let library else { return }
         errorMessage = nil
-        let typed = typedAnswers && !Self.demo
+        let typed = (typedAnswers || !listener.canListen) && !Self.demo
         let allowed = Self.demo || typed ? true : await Self.requestPermissions()
         Diagnostics.log("permissions granted: \(allowed), typed game: \(typed)")
         guard allowed else {
@@ -197,8 +200,8 @@ final class Quiz {
         while !Task.isCancelled {
             sync(game, reply)
             // Fetch the clip while the question is being read out.
-            let clipFile = reply.clip.map { clip in
-                Task { try await clips.file(for: clip.song) }
+            let prepared = reply.clip.map { clip in
+                Task { try await clips.prepare(clip) }
             }
 
             phase = .speaking
@@ -216,8 +219,8 @@ final class Quiz {
                 return
             }
 
-            if let clipFile {
-                guard await playClip(clipFile, game) else { return }
+            if let prepared {
+                guard await playClip(prepared, game) else { return }
             }
 
             heard = ""
@@ -245,22 +248,22 @@ final class Quiz {
 
     /// Play the current clip, swapping in another song if its audio can't be
     /// loaded. Returns false if the game should stop here.
-    private func playClip(_ firstFile: Task<URL, Error>, _ game: Game<SystemRandomNumberGenerator>) async -> Bool {
-        var file = firstFile
+    private func playClip(_ first: Task<PreparedClip, Error>, _ game: Game<SystemRandomNumberGenerator>) async -> Bool {
+        var prepared = first
         for _ in 0..<4 {
             guard let clip = game.clip else { return false }
             phase = .loading
             do {
-                let url = try await file.value
+                let ready = try await prepared.value
                 if Task.isCancelled { return false }
                 phase = .playing
-                try await clips.play(url, from: clip.offset, for: clip.duration)
+                try await clips.play(ready, for: clip.duration)
                 return !Task.isCancelled
             } catch {
                 if Task.isCancelled { return false }
                 guard let next = game.replaceClip() else { return false }
                 Diagnostics.log("couldn't load \(clip.song.title): \(error.localizedDescription)")
-                file = Task { try await clips.file(for: next.song) }
+                prepared = Task { try await clips.prepare(next) }
             }
         }
         phase = .paused

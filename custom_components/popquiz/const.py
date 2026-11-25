@@ -38,7 +38,7 @@ MIN_PLAYERS = 1
 MAX_PLAYERS = 6
 
 # How closely an answer must match, 0-100. Lower is more forgiving.
-TITLE_MATCH_THRESHOLD = 85
+TITLE_MATCH_THRESHOLD = 80
 ARTIST_MATCH_THRESHOLD = 80
 # Names this short (in letters) must be said exactly, since fuzzy matching
 # on very short strings produces false positives.

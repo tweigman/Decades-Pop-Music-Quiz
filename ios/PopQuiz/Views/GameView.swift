@@ -29,7 +29,7 @@ struct GameView: View {
                     if !quiz.heard.isEmpty {
                         Text("“\(quiz.heard)”")
                             .font(.headline)
-                            .foregroundStyle(Color.cyanGlow)
+                            .foregroundStyle(Color.sage)
                             .multilineTextAlignment(.center)
                     }
                     if let result = quiz.lastResult { ResultCard(result: result) }
@@ -79,12 +79,12 @@ struct GameView: View {
                 Button("Home") { quiz.quit() }
                     .buttonStyle(.bordered).tint(.white)
                 Button("Play again") { Task { quiz.quit(); await quiz.start() } }
-                    .buttonStyle(.borderedProminent).tint(.neon)
+                    .primaryButton()
             }
             .controlSize(.large)
         } else if quiz.phase == .paused {
             Button("Resume") { quiz.resume() }
-                .buttonStyle(.borderedProminent).tint(.neon).controlSize(.large)
+                .primaryButton().controlSize(.large)
         } else {
             switch quiz.gameState {
             case .players: playerButtons
@@ -134,7 +134,7 @@ struct GameView: View {
                         .keyboardType(.asciiCapable)
                         .submitLabel(.send)
                         .onSubmit(sendTyped)
-                    Button("Send", action: sendTyped).buttonStyle(.borderedProminent).tint(.neon)
+                    Button("Send", action: sendTyped).primaryButton()
                         .disabled(answerNotDue)
                 }
             }
@@ -142,7 +142,7 @@ struct GameView: View {
                 Button { quiz.doneTalking() } label: {
                     Label("Done", systemImage: "checkmark").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent).tint(.neon).controlSize(.large)
+                .primaryButton().controlSize(.large)
             }
             HStack(spacing: 12) {
                 Button { quiz.say("repeat") } label: { Label("Repeat", systemImage: "arrow.counterclockwise") }
@@ -199,7 +199,7 @@ private struct Scoreboard: View {
                 .padding(.vertical, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(leader ? Color.gold : current ? Color.cyanGlow : .white.opacity(0.1)))
+                        .fill(leader ? Color.gold : current ? Color.sage : .white.opacity(0.1)))
                 .animation(.spring, value: quiz.scores)
             }
         }
@@ -225,7 +225,7 @@ private struct ResultCard: View {
                     Label("Listen on Apple Music", systemImage: "arrow.up.right")
                         .font(.footnote.weight(.semibold))
                 }
-                .tint(.neon)
+                .tint(.amber)
                 .padding(.top, 2)
             }
         }
@@ -237,7 +237,7 @@ private struct ResultCard: View {
     private func mark(_ label: String, _ got: Bool) -> some View {
         Label(label, systemImage: got ? "checkmark.circle.fill" : "xmark.circle")
             .font(.subheadline)
-            .foregroundStyle(got ? .green : .white.opacity(0.5))
+            .foregroundStyle(got ? Color.sage : .white.opacity(0.5))
     }
 }
 
@@ -303,7 +303,7 @@ private struct CreditRow: View {
             if linked {
                 Image(systemName: "arrow.up.right.circle.fill")
                     .font(.title3)
-                    .foregroundStyle(Color.neon)
+                    .foregroundStyle(Color.amber)
             }
         }
         .padding(.horizontal, 14)
@@ -329,7 +329,7 @@ private struct StatusOrb: View {
                 .frame(width: 124, height: 124)
             Image(systemName: symbol)
                 .font(.system(size: 50, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(color == .pine ? Color.white : Color.stage)
                 .symbolEffect(.variableColor.iterative, isActive: animates)
         }
         .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
@@ -374,10 +374,10 @@ private struct StatusOrb: View {
 
     private var color: Color {
         switch phase {
-        case .listening, .typing: .cyanGlow
-        case .playing, .loading: .neon
+        case .listening, .typing: .sage
+        case .playing, .loading: .amber
         case .bonus, .over: .gold
-        default: .purple
+        default: .pine
         }
     }
 }

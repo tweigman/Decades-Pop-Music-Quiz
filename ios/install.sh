@@ -1,5 +1,8 @@
 #!/bin/sh
-# Build Pop Quiz and install it on the iPhone plugged into this Mac.
+# Build Pop Quiz and install it on a phone or iPad paired with this Mac (by
+# cable or over the network).
+#   ./install.sh            the first iPhone found
+#   ./install.sh iPad       a device whose name or model contains "iPad"
 set -eu
 cd "$(dirname "$0")"
 
@@ -21,18 +24,23 @@ APP=build/DerivedData/Build/Products/Release-iphoneos/PopQuiz.app
 
 JSON=$(mktemp)
 xcrun devicectl list devices --json-output "$JSON" >/dev/null
-DEVICE=$(python3 - "$JSON" <<'EOF'
+DEVICE=$(python3 - "$JSON" "${1:-iPhone}" <<'EOF'
 import json, sys
 devices = json.load(open(sys.argv[1]))["result"]["devices"]
+want = sys.argv[2].lower()
+def label(d):
+    return " ".join([d["deviceProperties"].get("name", ""), d["hardwareProperties"].get("marketingName", ""),
+                     d["hardwareProperties"].get("deviceType", "")]).lower()
 phones = [d for d in devices
           if d["hardwareProperties"].get("reality") == "physical"
           and d["hardwareProperties"].get("platform") == "iOS"
-          and d["connectionProperties"].get("tunnelState") != "unavailable"]
+          and d["connectionProperties"].get("tunnelState") != "unavailable"
+          and want in label(d)]
 print(phones[0]["identifier"] if phones else "")
 EOF
 )
 rm -f "$JSON"
-[ -n "$DEVICE" ] || { echo "No iPhone found. Plug it in, unlock it and tap Trust."; exit 1; }
+[ -n "$DEVICE" ] || { echo "No ${1:-iPhone} found. Pair it with this Mac, unlock it and try again."; exit 1; }
 
 xcrun devicectl device install app --device "$DEVICE" "$APP"
 xcrun devicectl device process launch --device "$DEVICE" com.tweigman.popquiz

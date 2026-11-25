@@ -2,64 +2,86 @@ import AVFoundation
 import PopQuizCore
 
 enum ClipError: LocalizedError {
-    case noURL, http(Int)
+    case noURL, failed(Error?), timedOut
     var errorDescription: String? {
         switch self {
         case .noURL: "This song has no preview URL."
-        case .http(let code): "The preview server answered \(code)."
+        case .failed(let error): error?.localizedDescription ?? "The preview couldn't be played."
+        case .timedOut: "The preview took too long to load."
         }
     }
 }
 
-/// Streams a song's preview from Apple and plays a window of it. Nothing is
-/// kept: previews sit in a temporary folder for the session, so a repeat
-/// doesn't fetch twice, and the folder is emptied at every launch.
+/// A preview that's buffered and waiting at the clip's start point.
+final class PreparedClip: @unchecked Sendable {
+    let player: AVPlayer
+    init(_ player: AVPlayer) { self.player = player }
+}
+
+/// Streams a song's preview straight from Apple and plays a window of it.
+/// Nothing is written to disk: Apple's terms for previews ask that they be
+/// streamed, not downloaded.
 final class ClipPlayer {
-    private var player: AVAudioPlayer?
-    private let folder = FileManager.default.temporaryDirectory.appending(path: "previews")
+    private var current: AVPlayer?
+    private var effect: AVAudioPlayer?
 
     init() {
-        try? FileManager.default.removeItem(at: folder)
-        // Earlier versions cached clips here.
+        // Versions before 2.0.2 downloaded previews to these folders.
+        try? FileManager.default.removeItem(at: FileManager.default.temporaryDirectory.appending(path: "previews"))
         try? FileManager.default.removeItem(at: URL.cachesDirectory.appending(path: "clips"))
     }
 
-    /// The song's preview as a local file, fetched if it isn't here already.
-    func file(for song: Song) async throws -> URL {
-        guard let remote = song.previewURL else { throw ClipError.noURL }
-        let type = remote.pathExtension.isEmpty ? "m4a" : remote.pathExtension
-        let local = folder.appending(path: "\(song.id).\(type)")
-        if FileManager.default.fileExists(atPath: local.path) { return local }
-        let (download, response) = try await URLSession.shared.download(from: remote)
-        if let code = (response as? HTTPURLResponse)?.statusCode, code != 200 { throw ClipError.http(code) }
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try? FileManager.default.removeItem(at: local)
-        try FileManager.default.moveItem(at: download, to: local)
-        return local
+    /// Open the stream, seek to the clip's start and buffer enough to begin
+    /// at once. Done while the question is being read out.
+    func prepare(_ clip: Clip) async throws -> PreparedClip {
+        guard let url = clip.song.previewURL else { throw ClipError.noURL }
+        let item = AVPlayerItem(url: url)
+        item.preferredForwardBufferDuration = clip.duration + 1
+        let player = AVPlayer(playerItem: item)
+        player.automaticallyWaitsToMinimizeStalling = true
+
+        let clock = ContinuousClock()
+        let deadline = clock.now + .seconds(15)
+        while item.status != .readyToPlay {
+            if item.status == .failed { throw ClipError.failed(item.error) }
+            if clock.now > deadline { throw ClipError.timedOut }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        let start = CMTime(seconds: clip.offset, preferredTimescale: 600)
+        _ = await player.seek(to: start, toleranceBefore: .zero, toleranceAfter: .zero)
+        _ = await player.preroll(atRate: 1)
+        try Task.checkCancellation()
+        return PreparedClip(player)
     }
 
-    /// Play `duration` seconds from `offset`, fading out at the end.
+    /// Play `duration` seconds of a prepared clip, fading out at the end.
     /// Stops at once if the task is cancelled.
-    func play(_ url: URL, from offset: Double, for duration: Double) async throws {
-        let player = try AVAudioPlayer(contentsOf: url)
-        self.player = player
-        defer { player.stop() }
-        player.currentTime = offset
+    func play(_ clip: PreparedClip, for duration: Double) async throws {
+        let player = clip.player
+        current = player
+        defer { player.pause() }
+        player.volume = 1
         player.play()
         let fade = min(0.4, duration / 4)
         try await Task.sleep(for: .seconds(duration - fade))
-        player.setVolume(0, fadeDuration: fade)
-        try await Task.sleep(for: .seconds(fade))
+        let steps = 8
+        for step in 1...steps {
+            player.volume = Float(steps - step) / Float(steps)
+            try await Task.sleep(for: .seconds(fade / Double(steps)))
+        }
     }
 
-    /// Play a whole file, such as the bonus-round intro.
-    func playAll(_ url: URL) async {
-        guard let player = try? AVAudioPlayer(contentsOf: url) else { return }
-        self.player = player
+    /// Play a short sound held in memory, such as the bonus-round intro.
+    func playAll(_ data: Data) async {
+        guard let player = try? AVAudioPlayer(data: data) else { return }
+        effect = player
         defer { player.stop() }
         player.play()
         try? await Task.sleep(for: .seconds(player.duration))
     }
 
-    func stop() { player?.stop() }
+    func stop() {
+        current?.pause()
+        effect?.stop()
+    }
 }

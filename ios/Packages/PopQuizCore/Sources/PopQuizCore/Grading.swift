@@ -77,6 +77,31 @@ public enum Grading {
         return out.filter { !$0.isEmpty }
     }
 
+    /// A bracketed part of a title that's only a label, not a way to name the
+    /// song: "(Part 1)", "(From "Batman")", "(Remix)".
+    private static let labelWords: Set<String> = [
+        "from", "part", "feat", "featuring", "with", "remix", "mix", "version",
+        "edit", "live", "remaster", "remastered", "mono", "stereo",
+    ]
+    private static let bracketed = try! NSRegularExpression(pattern: #"\(([^)]*)\)"#)
+
+    /// As `variants`, and a bracketed part alone also names the song:
+    /// "(Sweet Sweet Baby) Since You've Been Gone" is right as "Sweet Sweet
+    /// Baby", "Since You've Been Gone", or both. Labels like "(Part 1)" don't
+    /// count, nor single short words.
+    static func titleVariants(_ title: String) -> Set<String> {
+        var out = variants(title)
+        let range = NSRange(title.startIndex..., in: title)
+        for match in bracketed.matches(in: title, range: range) {
+            guard let inner = Range(match.range(at: 1), in: title) else { continue }
+            let words = normalize(String(title[inner])).split(separator: " ").map(String.init)
+            guard let first = words.first, !labelWords.contains(first),
+                labelWords.isDisjoint(with: words) else { continue }
+            if words.count >= 2 || first.count >= 6 { out.insert(words.joined(separator: " ")) }
+        }
+        return out
+    }
+
     /// Best match of target against any run of words in said.
     static func bestWindowScore(_ target: String, _ said: String) -> Double {
         let words = said.split(separator: " ")
@@ -122,7 +147,7 @@ public enum Grading {
     /// Whether the answer names the title and/or any credited artist.
     public static func grade(_ said: String, title: String, artists: [String]) -> (title: Bool, artist: Bool) {
         let said = normalize(said)
-        let gotTitle = matches(variants(title), said, Settings.titleMatchThreshold)
+        let gotTitle = matches(titleVariants(title), said, Settings.titleMatchThreshold)
         let gotArtist = artists.contains { artistMatches($0, said) }
         return (gotTitle, gotArtist)
     }

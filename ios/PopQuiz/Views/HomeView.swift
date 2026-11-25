@@ -26,7 +26,7 @@ private struct AnswerModePicker: View {
                 .foregroundStyle(selected ? Color.stage : .white.opacity(0.7))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 9)
-                .background(Capsule().fill(selected ? Color.cyanGlow : .clear))
+                .background(Capsule().fill(selected ? Color.amber : .clear))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -45,7 +45,7 @@ struct HomeView: View {
                 Spacer()
                 Image(systemName: "music.mic")
                     .font(.system(size: 72, weight: .bold))
-                    .foregroundStyle(LinearGradient(colors: [.neon, .gold], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .foregroundStyle(LinearGradient(colors: [.amber, .gold], startPoint: .topLeading, endPoint: .bottomTrailing))
                 Text("Pop Quiz")
                     .font(.system(size: 52, weight: .black, design: .rounded))
                     .foregroundStyle(.white)
@@ -59,7 +59,14 @@ struct HomeView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer()
 
-                AnswerModePicker(typed: Bindable(quiz).typedAnswers)
+                if quiz.canListen {
+                    AnswerModePicker(typed: Bindable(quiz).typedAnswers)
+                } else {
+                    Label("This iPhone can't recognize speech on the device, so answers are typed.", systemImage: "keyboard")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.55))
+                        .multilineTextAlignment(.center)
+                }
 
                 Button {
                     starting = true
@@ -73,8 +80,7 @@ struct HomeView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.neon)
+                .primaryButton()
                 .clipShape(Capsule())
                 .disabled(quiz.library == nil || starting)
 
@@ -86,6 +92,19 @@ struct HomeView: View {
                         .foregroundStyle(.white.opacity(0.55))
                     Text("Song previews from Apple Music · Built with Claude Code")
                         .foregroundStyle(.white.opacity(0.4))
+                    HStack(spacing: 6) {
+                        Image("AmbericLogo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 22)
+                            .accessibilityHidden(true)
+                        Text("Amberic LLC")
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.4))
+                    .padding(.top, 4)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Made by Amberic LLC")
                 }
                 .font(.footnote)
                 .multilineTextAlignment(.center)

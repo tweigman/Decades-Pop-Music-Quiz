@@ -1,7 +1,8 @@
 import Foundation
 import os
 
-/// A small log file for troubleshooting on the phone. Pull it to the Mac with:
+/// A small log file for troubleshooting on the phone (debug builds only: a
+/// release build keeps nothing it hears). Pull it to the Mac with:
 ///   xcrun devicectl device copy from --device <id> --domain-type appDataContainer \
 ///     --domain-identifier com.tweigman.popquiz --source Documents/diagnostics.log --destination .
 nonisolated enum Diagnostics {
@@ -10,6 +11,7 @@ nonisolated enum Diagnostics {
     private static let queue = DispatchQueue(label: "diagnostics")
 
     static func log(_ message: String) {
+        #if DEBUG
         logger.notice("\(message, privacy: .public)")
         let line = "\(Date().formatted(.iso8601.time(includingFractionalSeconds: true))) \(message)\n"
         queue.async {
@@ -22,6 +24,7 @@ nonisolated enum Diagnostics {
                 try? data.write(to: url)
             }
         }
+        #endif
     }
 
     /// Start a fresh log for each launch.

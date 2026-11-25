@@ -22,6 +22,18 @@ final class Listener {
 
     var onDevice: Bool { recognizer?.supportsOnDeviceRecognition ?? false }
 
+    /// Whether answers can be heard at all. Speech never leaves the phone, so
+    /// an iPhone that can't recognize speech on the device gets typed games.
+    /// (The simulator has no on-device models; debug builds there use Apple's
+    /// servers instead.)
+    var canListen: Bool {
+        #if targetEnvironment(simulator)
+        recognizer != nil
+        #else
+        onDevice
+        #endif
+    }
+
     /// Start the microphone. It stays on for the whole game; audio only reaches
     /// the recognizer while `listen` is running.
     func start() throws {
@@ -43,7 +55,7 @@ final class Listener {
 
     /// Listen for one answer. Returns what was heard, or "" if nothing was.
     func listen(onPartial: @escaping (String) -> Void) async -> String {
-        guard let recognizer, recognizer.isAvailable else {
+        guard canListen, let recognizer, recognizer.isAvailable else {
             Diagnostics.log("recognizer unavailable")
             return ""
         }

@@ -46,8 +46,8 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    LabeledContent("Song previews", value: "Apple Music")
-                    LabeledContent("Built with", value: "Claude Code")
+                    NavigationLink("Credits & Acknowledgements") { AcknowledgementsView() }
+                    LabeledContent("Made by", value: "Amberic LLC")
                 } header: {
                     Text("About")
                 } footer: {
@@ -57,6 +57,7 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .toolbar { Button("Done") { dismiss() } }
         }
+        .tint(.amber)
     }
 
     private static func quality(_ voice: AVSpeechSynthesisVoice) -> String {

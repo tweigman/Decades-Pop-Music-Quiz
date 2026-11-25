@@ -87,6 +87,29 @@ func song(
         #expect(grade("Beatles", song("Help!", "The Beatles"))[1])
     }
 
+    @Test func eitherSideOfTheBrackets() {
+        let s = song("(Sweet Sweet Baby) Since You've Been Gone", "Aretha Franklin")
+        for said in ["Sweet sweet baby", "Since you've been gone", "sweet sweet baby since you've been gone"] {
+            #expect(grade(said, s)[0], "\(said)")
+        }
+        // A label in brackets isn't a name for the song.
+        #expect(!grade("part one", song("Sky Pilot (Part One)", "The Animals"))[0])
+        #expect(!grade("batman and robin", song("Look Into My Eyes (From \"Batman & Robin\")", "Bone Thugs-N-Harmony"))[0])
+        #expect(grade("Volare", song("Nel Blu Dipinto Di Blu (Volaré)", "Domenico Modugno"))[0])
+    }
+
+    @Test func aMissingShortWordStillCounts() {
+        #expect(grade("Her Town", song("Her Town Too", "James Taylor"))[0])
+    }
+
+    @Test func leadArtistWithoutTheBackingGroup() {
+        let s = Song(id: "1", title: "Hard Headed Woman",
+                     artists: ArtistCredit.parse("Elvis Presley With The Jordanaires").names, peak: 1, length: 30)
+        #expect(grade("Elvis Presley", s)[1])
+        #expect(grade("Presley", s)[1])
+        #expect(grade("Elvis", s)[1] == false)
+    }
+
     @Test func shortNamesNeedExactMatch() {
         let s = song("Hey", "U2")
         #expect(grade("U2", s) == [false, true])

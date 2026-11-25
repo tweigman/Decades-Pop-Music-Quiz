@@ -27,16 +27,29 @@ struct PopQuizApp: App {
 }
 
 extension Color {
-    static let stage = Color(red: 0.07, green: 0.05, blue: 0.16)
-    static let neon = Color(red: 1.0, green: 0.27, blue: 0.6)
-    static let gold = Color(red: 1.0, green: 0.78, blue: 0.2)
-    static let cyanGlow = Color(red: 0.3, green: 0.85, blue: 1.0)
+    /// Deep green, the backdrop everything sits on.
+    static let stage = Color(red: 0.04, green: 0.12, blue: 0.09)
+    /// Yellow for buttons and anything to tap.
+    static let amber = Color(red: 1.0, green: 0.76, blue: 0.16)
+    /// Lighter gold for highlighted text: category, points, the leader.
+    static let gold = Color(red: 1.0, green: 0.85, blue: 0.42)
+    /// Pale green for "your turn": the current player, what was heard.
+    static let sage = Color(red: 0.62, green: 0.87, blue: 0.68)
+    /// Mid green for the quizmaster speaking.
+    static let pine = Color(red: 0.2, green: 0.5, blue: 0.36)
+}
+
+extension View {
+    /// The main action on a screen: a yellow button with dark green text.
+    func primaryButton() -> some View {
+        buttonStyle(.borderedProminent).tint(.amber).foregroundStyle(Color.stage)
+    }
 }
 
 struct StageBackground: View {
     var body: some View {
         LinearGradient(
-            colors: [Color(red: 0.16, green: 0.06, blue: 0.3), .stage, .black],
+            colors: [Color(red: 0.11, green: 0.28, blue: 0.2), .stage, Color(red: 0.01, green: 0.05, blue: 0.03)],
             startPoint: .top, endPoint: .bottom
         )
         .ignoresSafeArea()

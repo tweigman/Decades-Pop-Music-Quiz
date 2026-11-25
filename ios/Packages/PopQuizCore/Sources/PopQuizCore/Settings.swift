@@ -60,7 +60,7 @@ public enum Settings {
     public static let maxPlayers = 6
 
     /// How closely an answer must match, 0-100. Lower is more forgiving.
-    public static let titleMatchThreshold = 85.0
+    public static let titleMatchThreshold = 80.0
     public static let artistMatchThreshold = 80.0
     /// Names this short (in letters) must be said exactly, since fuzzy
     /// matching on very short strings produces false positives.

@@ -76,6 +76,27 @@ def _variants(name: str) -> set[str]:
     return {v for v in out if v}
 
 
+# A bracketed part of a title that's only a label, not a way to name the song:
+# "(Part 1)", "(From "Batman")", "(Remix)".
+_LABEL_WORDS = {"from", "part", "feat", "featuring", "with", "remix", "mix", "version",
+                "edit", "live", "remaster", "remastered", "mono", "stereo"}
+
+
+def _title_variants(title: str) -> set[str]:
+    """As _variants, and a bracketed part alone also names the song:
+    "(Sweet Sweet Baby) Since You've Been Gone" is right as "Sweet Sweet Baby",
+    "Since You've Been Gone", or both. Labels like "(Part 1)" don't count, nor
+    single short words."""
+    out = _variants(title)
+    for inner in re.findall(r"\(([^)]*)\)", title):
+        words = normalize(inner).split()
+        if not words or words[0] in _LABEL_WORDS or _LABEL_WORDS & set(words):
+            continue
+        if len(words) >= 2 or len(words[0]) >= 6:
+            out.add(" ".join(words))
+    return out
+
+
 def _best_window_score(target: str, said: str) -> float:
     """Best match of target against any run of words in said."""
     words = said.split()
@@ -120,7 +141,7 @@ def _artist_matches(name: str, said: str) -> bool:
 def grade(said: str, song: Song) -> tuple[bool, bool]:
     """Return (got_title, got_artist). Any credited artist counts."""
     said = normalize(said)
-    got_title = _matches(_variants(song.title), said, TITLE_MATCH_THRESHOLD)
+    got_title = _matches(_title_variants(song.title), said, TITLE_MATCH_THRESHOLD)
     got_artist = any(_artist_matches(a, said) for a in song.artists)
     return got_title, got_artist
 
