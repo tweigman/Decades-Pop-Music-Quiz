@@ -22,7 +22,7 @@ Decades: Pop Music Quiz is a name-that-tune party game for iPhone and iPad, by A
 - **"Can't load the songs."** Clips stream from Apple Music, so Decades needs
   an internet connection.
 - **The voice sounds robotic.** Download an Enhanced or Premium voice in
-  Settings › Accessibility › Spoken Content › Voices, then pick it in Decades's settings.
+  Settings › Accessibility › Spoken Content › Voices, then pick it in the game's settings.
 - **No Holiday category?** It appears from November 20 to January 6. Turn on
   **Enable extended playlists** in settings to play it any time.
 
