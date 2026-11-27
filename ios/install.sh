@@ -9,19 +9,6 @@ cd "$(dirname "$0")"
 XCODE=/Volumes/Macz500/Applications/Xcode.app/Contents/Developer
 if [ -z "${DEVELOPER_DIR:-}" ] && [ -d "$XCODE" ]; then export DEVELOPER_DIR="$XCODE"; fi
 
-xcodegen --quiet
-LOG=build/build.log
-mkdir -p build
-if ! xcodebuild -project PopQuiz.xcodeproj -scheme PopQuiz -configuration Release \
-    -destination 'generic/platform=iOS' -derivedDataPath build/DerivedData \
-    -allowProvisioningUpdates build >"$LOG" 2>&1; then
-    grep -E "error:" "$LOG" | sort -u
-    echo "Build failed; full log in ios/$LOG"
-    exit 1
-fi
-grep -E "warning: .*\.swift" "$LOG" | sort -u || true
-APP=build/DerivedData/Build/Products/Release-iphoneos/PopQuiz.app
-
 JSON=$(mktemp)
 xcrun devicectl list devices --json-output "$JSON" >/dev/null
 DEVICE=$(python3 - "$JSON" "${1:-iPhone}" <<'EOF'
@@ -41,6 +28,22 @@ EOF
 )
 rm -f "$JSON"
 [ -n "$DEVICE" ] || { echo "No ${1:-iPhone} found. Pair it with this Mac, unlock it and try again."; exit 1; }
+
+# Building for the device itself (not a generic iOS device) lets Xcode add a
+# new phone or iPad to the provisioning profile; without that the install
+# fails with "This provisioning profile cannot be installed on this device".
+xcodegen --quiet
+LOG=build/build.log
+mkdir -p build
+if ! xcodebuild -project PopQuiz.xcodeproj -scheme PopQuiz -configuration Release \
+    -destination "id=$DEVICE" -derivedDataPath build/DerivedData \
+    -allowProvisioningUpdates -allowProvisioningDeviceRegistration build >"$LOG" 2>&1; then
+    grep -E "error:" "$LOG" | sort -u
+    echo "Build failed; full log in ios/$LOG"
+    exit 1
+fi
+grep -E "warning: .*\.swift" "$LOG" | sort -u || true
+APP=build/DerivedData/Build/Products/Release-iphoneos/PopQuiz.app
 
 xcrun devicectl device install app --device "$DEVICE" "$APP"
 xcrun devicectl device process launch --device "$DEVICE" com.tweigman.popquiz
