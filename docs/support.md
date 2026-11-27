@@ -29,6 +29,7 @@ Decades: Pop Music Quiz is a name-that-tune party game for iPhone and iPad, by A
 
 ## Contact
 
-Email SUPPORT EMAIL. We read everything, though replies may take a few days.
+Questions, problems or song corrections: [open an issue on GitHub](https://github.com/tweigman/Decades-Pop-Music-Quiz/issues).
+We read everything, though replies may take a few days.
 
 [Privacy Policy](privacy.md)

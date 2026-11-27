@@ -1,6 +1,6 @@
 # Privacy Policy
 
-*Decades: Pop Music Quiz, by Amberic LLC. Last updated: November 25, 2026.*
+*Decades: Pop Music Quiz, by Amberic LLC. Last updated: November 27, 2026.*
 
 **Decades: Pop Music Quiz collects no personal information.** There are no accounts, ads,
 analytics or tracking, and nothing about you or your games is sent to Amberic
@@ -37,4 +37,4 @@ children.
 
 ## Contact
 
-Questions about this policy: SUPPORT EMAIL
+Questions about this policy: [open an issue on GitHub](https://github.com/tweigman/Decades-Pop-Music-Quiz/issues).
