@@ -38,6 +38,7 @@ struct GameView: View {
                 controls
             }
             .padding(20)
+            .frame(maxWidth: 600)
             .animation(.easeInOut(duration: 0.5), value: quiz.phase == .over)
         }
         .confirmationDialog("End this game?", isPresented: $confirmQuit, titleVisibility: .visible) {
@@ -54,7 +55,7 @@ struct GameView: View {
                     Text(roundLabel).font(.subheadline).foregroundStyle(.white.opacity(0.7))
                 }
             } else {
-                Text("Pop Quiz").font(.headline).foregroundStyle(Color.gold)
+                Text("Decades: Pop Music Quiz").font(.headline).foregroundStyle(Color.gold)
             }
             Spacer()
             if quiz.phase != .over {

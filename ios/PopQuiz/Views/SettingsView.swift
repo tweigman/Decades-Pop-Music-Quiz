@@ -18,7 +18,7 @@ struct SettingsView: View {
                         }
                     }
                     Button("Hear it") {
-                        let line = AVSpeechUtterance(string: "Welcome to Pop Quiz! Here's your song.")
+                        let line = AVSpeechUtterance(string: "Welcome to Decades: Pop Music Quiz! Here's your song.")
                         line.voice = AVSpeechSynthesisVoice(identifier: quiz.voiceIdentifier) ?? Speaker.bestVoice()
                         preview.stopSpeaking(at: .immediate)
                         preview.speak(line)
@@ -51,7 +51,7 @@ struct SettingsView: View {
                 } header: {
                     Text("About")
                 } footer: {
-                    Text("Clips are streamed from Apple Music's song previews, so Pop Quiz needs an internet connection. Every song you hear is listed, with a link, when the game ends.")
+                    Text("Clips are streamed from Apple Music's song previews, so the game needs an internet connection. Every song you hear is listed, with a link, when the game ends.")
                 }
             }
             .navigationTitle("Settings")

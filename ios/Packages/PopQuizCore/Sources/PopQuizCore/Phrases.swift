@@ -1,21 +1,21 @@
-// Things Pop Quiz says. Mirrors custom_components/popquiz/phrases.py.
+// Things the quizmaster says. Mirrors custom_components/popquiz/phrases.py.
 
 public enum Phrases {
     public static let welcome =
-        "Welcome to Pop Quiz! I'll play a short clip of a song. "
+        "Welcome to Decades: Pop Music Quiz! I'll play a short clip of a song. "
         + "Name the song, the artist, or both for double points. "
         + "Say repeat to hear it again, skip to pass, or exit game now to quit. "
 
     /// For a game where answers are typed rather than spoken.
     public static let welcomeTyped =
-        "Welcome to Pop Quiz! I'll play a short clip of a song. "
+        "Welcome to Decades: Pop Music Quiz! I'll play a short clip of a song. "
         + "Type the song, the artist, or both for double points. "
         + "Use the buttons to hear it again or to skip. "
 
     public static let askPlayers = "How many players? Anywhere from one to six."
 
     /// No end punctuation: the game adds "." or ", or choose Holiday!" in season.
-    public static let askCategory = "Pick a category for Pop Quiz, like 70s, 80s, or 2020s"
+    public static let askCategory = "Pick a category, like 70s, 80s, or 2020s"
 
     public static let celebrations = [
         "Take a bow, you absolute music legend!",

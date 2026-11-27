@@ -1,6 +1,6 @@
-# Pop Quiz Support
+# Decades: Pop Music Quiz Support
 
-Pop Quiz is a name-that-tune party game for iPhone, by Amberic LLC.
+Decades: Pop Music Quiz is a name-that-tune party game for iPhone and iPad, by Amberic LLC.
 
 ## How to play
 
@@ -17,9 +17,9 @@ Pop Quiz is a name-that-tune party game for iPhone, by Amberic LLC.
 ## Troubleshooting
 
 - **It doesn't hear me.** Allow the microphone and speech recognition in
-  Settings › Pop Quiz. Speak after the clip ends, close to the phone. In a
+  Settings › Decades. Speak after the clip ends, close to the phone. In a
   noisy room, start a game with **Type answers**.
-- **"Can't load the songs."** Clips stream from Apple Music, so Pop Quiz needs
+- **"Can't load the songs."** Clips stream from Apple Music, so Decades needs
   an internet connection.
 - **The voice sounds robotic.** Download an Enhanced or Premium voice in
   Settings › Accessibility › Spoken Content › Voices, then pick it in Pop

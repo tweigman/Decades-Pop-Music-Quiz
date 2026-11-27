@@ -60,7 +60,7 @@ final class Quiz {
 
     var isPlaying: Bool { game != nil && phase != .over }
 
-    /// Whether this iPhone can take spoken answers (on-device recognition).
+    /// Whether this device can take spoken answers (on-device recognition).
     var canListen: Bool { listener.canListen }
 
     /// Whether the holiday category is on offer, and why.
@@ -109,7 +109,7 @@ final class Quiz {
         let allowed = Self.demo || typed ? true : await Self.requestPermissions()
         Diagnostics.log("permissions granted: \(allowed), typed game: \(typed)")
         guard allowed else {
-            errorMessage = "Pop Quiz needs the microphone and speech recognition. Turn them on in Settings."
+            errorMessage = "Decades needs the microphone and speech recognition. Turn them on in Settings."
             return
         }
         do {

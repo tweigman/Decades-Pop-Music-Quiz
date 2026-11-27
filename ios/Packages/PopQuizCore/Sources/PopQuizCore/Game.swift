@@ -116,7 +116,7 @@ public final class Game<RNG: RandomNumberGenerator> {
     public func handle(_ said: String) -> Reply {
         if Grading.isExit(said) {
             state = .over
-            return Reply(speech: "Game over. Thanks for playing Pop Quiz!", done: true)
+            return Reply(speech: "Game over. Thanks for playing Decades: Pop Music Quiz!", done: true)
         }
         switch state {
         case .players: return onPlayers(said)

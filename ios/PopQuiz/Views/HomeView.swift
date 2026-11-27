@@ -43,12 +43,24 @@ struct HomeView: View {
             StageBackground()
             VStack(spacing: 28) {
                 Spacer()
-                Image(systemName: "music.mic")
-                    .font(.system(size: 72, weight: .bold))
-                    .foregroundStyle(LinearGradient(colors: [.amber, .gold], startPoint: .topLeading, endPoint: .bottomTrailing))
-                Text("Pop Quiz")
-                    .font(.system(size: 52, weight: .black, design: .rounded))
-                    .foregroundStyle(.white)
+                Image("Artwork")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 132, height: 132)
+                    .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+                    .shadow(color: Color.amber.opacity(0.35), radius: 24)
+                    .accessibilityHidden(true)
+                VStack(spacing: 2) {
+                    Text("Decades")
+                        .font(.system(size: 52, weight: .black, design: .rounded))
+                        .foregroundStyle(.white)
+                    Text("POP MUSIC QUIZ")
+                        .font(.system(size: 20, weight: .heavy, design: .rounded))
+                        .tracking(4)
+                        .foregroundStyle(Color.gold)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Decades: Pop Music Quiz")
                 Text("Name the song, the artist, or both.")
                     .font(.title3)
                     .foregroundStyle(.white.opacity(0.7))
@@ -62,7 +74,7 @@ struct HomeView: View {
                 if quiz.canListen {
                     AnswerModePicker(typed: Bindable(quiz).typedAnswers)
                 } else {
-                    Label("This iPhone can't recognize speech on the device, so answers are typed.", systemImage: "keyboard")
+                    Label("This device can't recognize speech on its own, so answers are typed.", systemImage: "keyboard")
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.55))
                         .multilineTextAlignment(.center)
@@ -110,6 +122,8 @@ struct HomeView: View {
                 .multilineTextAlignment(.center)
             }
             .padding(24)
+            // On an iPad, keep a phone-like column in the middle.
+            .frame(maxWidth: 560)
         }
         .overlay(alignment: .topTrailing) {
             Button { showSettings = true } label: {

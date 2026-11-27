@@ -28,21 +28,27 @@ targets:
     info:
       path: PopQuiz/Info.plist
       properties:
-        CFBundleDisplayName: Pop Quiz
+        CFBundleDisplayName: Decades
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen:
           UIColorName: LaunchBackground
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        # A native iPad app turns with the iPad, so it offers every orientation.
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         UIUserInterfaceStyle: Dark
-        NSMicrophoneUsageDescription: Pop Quiz listens for your answers.
-        NSSpeechRecognitionUsageDescription: Pop Quiz turns your spoken answers into text, on this iPhone.
+        NSMicrophoneUsageDescription: Decades listens for your answers.
+        NSSpeechRecognitionUsageDescription: Decades turns your spoken answers into text, on this device.
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tweigman.popquiz
-        TARGETED_DEVICE_FAMILY: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"
         MARKETING_VERSION: "2.0.2"
         CURRENT_PROJECT_VERSION: "5"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

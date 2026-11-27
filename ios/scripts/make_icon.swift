@@ -73,7 +73,7 @@ ctx.drawRadialGradient(
     startCenter: burst, startRadius: 0, endCenter: burst, endRadius: 260, options: [.drawsAfterEndLocation])
 ctx.restoreGState()
 
-// Sparks flying out: small four-point stars and streaks.
+// Sparks flying out: small four-point stars.
 func sparkle(_ c: CGPoint, _ r: CGFloat, _ color: CGColor) {
     let p = CGMutablePath()
     p.move(to: CGPoint(x: c.x, y: c.y - r))
@@ -87,14 +87,6 @@ func sparkle(_ c: CGPoint, _ r: CGFloat, _ color: CGColor) {
 }
 for (x, y, r) in [(905.0, 150.0, 34.0), (220.0, 205.0, 26.0), (860.0, 470.0, 20.0), (330.0, 110.0, 16.0), (700.0, 95.0, 18.0), (160.0, 420.0, 14.0)] {
     sparkle(CGPoint(x: x, y: y), r, rgb(1, 0.95, 0.7))
-}
-ctx.setLineCap(.round)
-for (angle, from, to, width) in [(-2.3, 430.0, 500.0, 9.0), (-0.7, 440.0, 520.0, 8.0), (-1.55, 450.0, 520.0, 7.0), (0.15, 455.0, 530.0, 7.0), (-2.95, 445.0, 515.0, 6.0)] {
-    ctx.setStrokeColor(rgb(1, 0.9, 0.5, 0.9))
-    ctx.setLineWidth(width)
-    ctx.move(to: CGPoint(x: burst.x + cos(angle) * from, y: burst.y + sin(angle) * from))
-    ctx.addLine(to: CGPoint(x: burst.x + cos(angle) * to, y: burst.y + sin(angle) * to))
-    ctx.strokePath()
 }
 
 // The record, tipped back to a shallow angle and turned a little.

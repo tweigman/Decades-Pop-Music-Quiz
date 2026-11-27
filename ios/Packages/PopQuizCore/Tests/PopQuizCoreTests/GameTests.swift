@@ -245,7 +245,7 @@ func song(
     @Test func holidayHiddenOutOfSeason() {
         let (game, prompt) = holidayGame(false)
         #expect(!game.categories.contains("holiday"))
-        #expect(prompt.contains("Pick a category for Pop Quiz, like 70s, 80s, or 2020s."))
+        #expect(prompt.contains("Pick a category, like 70s, 80s, or 2020s."))
         #expect(!prompt.contains("Holiday"))
         // Asking for it anyway gets the prompt again, not a holiday game.
         #expect(game.handle("holiday").speech.contains("didn't catch that"))

@@ -19,7 +19,7 @@ struct AcknowledgementsView: View {
                         .frame(height: 56)
                         .foregroundStyle(Color.gold)
                         .accessibilityHidden(true)
-                    Text("Pop Quiz").font(.title2.weight(.black)).fontDesign(.rounded)
+                    Text("Decades: Pop Music Quiz").font(.title2.weight(.black)).fontDesign(.rounded)
                     Text("Made by Amberic LLC").font(.subheadline).foregroundStyle(.secondary)
                     Text("Version \(version)").font(.caption).foregroundStyle(.secondary)
                 }
@@ -38,7 +38,7 @@ struct AcknowledgementsView: View {
 
             Section("Voice") {
                 credit("Speech",
-                       "The quizmaster speaks with Apple's built-in voices, and answers are recognized on this iPhone with Apple's speech recognition. Nothing you say is recorded or kept.")
+                       "The quizmaster speaks with Apple's built-in voices, and answers are recognized on this device with Apple's speech recognition. Nothing you say is recorded or kept.")
             }
 
             Section {
