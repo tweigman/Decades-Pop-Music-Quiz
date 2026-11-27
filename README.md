@@ -210,6 +210,8 @@ Without it, the bonus round just has no intro sound.
 ```
 
 This copies to the Synology over SSH (you'll be asked for the password).
+Put the NAS login in `deploy.env` (gitignored), as `POPQUIZ_HOST=user@host`
+and, if it differs from `/volume1/docker/homeassistant`, `POPQUIZ_HA_DIR=`.
 The song data goes to `<config>/popquiz/`; the integration code goes to
 `<config>/custom_components/popquiz/`. Then:
 

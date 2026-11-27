@@ -12,8 +12,11 @@ __pycache__/
 *.pyc
 .DS_Store
 
-# Bonus-round build-up sound and any other game audio you add.
-sounds/*.mp3
+# Bonus-round build-up sound, its licence, and any other game audio you add.
+sounds/*
 
 # Environment for detect_lyrics.py (torch + demucs, ~400 MB).
 .venv-audio/
+
+# Where deploy.sh sends Home Assistant files (host, user). Local only.
+deploy.env

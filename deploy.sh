@@ -3,9 +3,14 @@
 #   ./deploy.sh        integration code only (seconds)
 #   ./deploy.sh all    code plus categories, previews and sounds (~500 MB)
 set -euo pipefail
-HOST="${POPQUIZ_HOST:-user@nas-address}"
-HA_DIR="${POPQUIZ_HA_DIR:-/volume1/docker/homeassistant}"
 cd "$(dirname "$0")"
+# Where Home Assistant lives is kept out of the repository, in deploy.env
+# (gitignored), e.g.
+#   POPQUIZ_HOST=user@nas-address
+#   POPQUIZ_HA_DIR=/volume1/docker/homeassistant
+if [[ -f deploy.env ]]; then source deploy.env; fi
+HOST="${POPQUIZ_HOST:?Set POPQUIZ_HOST (user@host) in deploy.env or the environment}"
+HA_DIR="${POPQUIZ_HA_DIR:-/volume1/docker/homeassistant}"
 # Leave out macOS metadata (._ files, xattrs) that Linux tar warns about.
 export COPYFILE_DISABLE=1
 
